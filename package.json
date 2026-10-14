@@ -20,6 +20,7 @@
   "main": "./out/extension.js",
   "scripts": {
     "compile": "tsc -p ./",
+    "test:unit": "node --test \"out/test/unit/**/*.test.js\"",
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {

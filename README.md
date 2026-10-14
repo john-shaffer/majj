@@ -11,6 +11,7 @@ Recipes are in the [justfile](justfile) (`just` lists them):
 just build        # the extension, into ./result
 just check        # every flake check
 just format       # format sources with sand
+just test-unit
 ```
 
 For interactive development, `nix develop`, then `npm install` and press F5 in
