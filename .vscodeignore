@@ -1,0 +1,7 @@
+src/**
+out/test/**
+scripts/**
+flake.nix
+flake.lock
+tsconfig.json
+**/*.map

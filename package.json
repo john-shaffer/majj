@@ -1,0 +1,31 @@
+{
+  "name": "majj",
+  "displayName": "majj",
+  "description": "Magit-style interface for Jujutsu (jj)",
+  "version": "0.0.1",
+  "publisher": "jdsha",
+  "preview": true,
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "jj",
+    "jujutsu",
+    "magit"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "~1.95.0",
+    "typescript": "^5.9.0"
+  },
+  "license": "MIT"
+}
