@@ -39,6 +39,8 @@ async function waitFor(
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function setConfig(key: string, value: unknown) {
   await vscode.workspace
     .getConfiguration("majj")
@@ -87,7 +89,46 @@ test("jj colors are kept as styled spans", async () => {
   );
 });
 
+test("watch mode picks up operations from the jj CLI", async () => {
+  await setConfig("autoRefresh.mode", "watch");
+  jj("describe", "-m", "Described from the CLI");
+  await waitFor("the new description", () =>
+    statusText().includes("Described from the CLI"),
+  );
+});
+
+test("watch mode picks up file edits", async () => {
+  fs.writeFileSync(path.join(repo, "watched.txt"), "x\n");
+  await waitFor("the new file", () => statusText().includes("A watched.txt"));
+});
+
+test("off mode only refreshes on demand", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  await sleep(500);
+  fs.writeFileSync(path.join(repo, "unwatched.txt"), "x\n");
+  await sleep(1500);
+  assert.ok(
+    !statusText().includes("unwatched.txt"),
+    "refreshed although auto refresh is off",
+  );
+  await vscode.commands.executeCommand("majj.refresh");
+  await waitFor("the refresh", () => statusText().includes("A unwatched.txt"));
+});
+
+test("poll mode refreshes periodically", async () => {
+  await setConfig("autoRefresh.pollInterval", 1);
+  await setConfig("autoRefresh.mode", "poll");
+  await sleep(500);
+  fs.writeFileSync(path.join(repo, "polled.txt"), "x\n");
+  await waitFor(
+    "the polled file",
+    () => statusText().includes("A polled.txt"),
+    5000,
+  );
+});
+
 test("revset and limit settings apply to the change graph", async () => {
+  await setConfig("autoRefresh.mode", "off");
   await setConfig("status.revset", "@ | @-");
   await vscode.commands.executeCommand("majj.refresh");
   await waitFor("the revset", () => statusText().includes("Changes: @ | @-"));

@@ -45,11 +45,20 @@ Change them in **Preferences: Open Keyboard Shortcuts** (search for "majj"), or 
 
 | Setting                         | Default | Description |
 | ------------------------------- | ------- | ----------- |
+| `majj.autoRefresh.mode`         | `watch` | `off`, `poll`, or `watch`. |
+| `majj.autoRefresh.pollInterval` | `5`     | Seconds between refreshes in `poll` mode. |
 | `majj.jjPath`                   | `jj`    | jj executable. |
 | `majj.status.limit`             | `50`    | Maximum changes in the graph (0 = no limit). |
 | `majj.status.revset`            | `""`    | Revset for the change graph; empty uses jj's `revsets.log`. |
 
-Refreshing runs `jj status`, which snapshots the working copy, just as
+jj has no way to subscribe to repository changes (its watchman integration only
+speeds up snapshots), so `watch` mode watches jj's operation heads
+(`.jj/repo/op_heads`), which change after every jj operation, plus the files in
+the workspace. `poll` mode re-runs jj on a timer instead, which helps where file
+watching is unreliable (e.g. network file systems). Either way, refreshes only run
+while the view is visible; a hidden view catches up when it is shown again.
+
+Note that refreshing runs `jj status`, which snapshots the working copy, just as
 running jj in a terminal does.
 
 ## Development

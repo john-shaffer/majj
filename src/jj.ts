@@ -1,4 +1,6 @@
 import { execFile } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 import { stripAnsi } from "./ansi";
 import { getConfig } from "./config";
 
@@ -39,4 +41,18 @@ export function runJj(
 /** The root of the jj workspace containing `dir`. */
 export async function findRoot(dir: string): Promise<string> {
   return (await runJj(dir, ["root"])).trim();
+}
+
+/**
+ * The repo directory shared by all workspaces of the repository. In the main
+ * workspace `.jj/repo` is that directory; in secondary workspaces it is a file
+ * containing the path to it.
+ */
+export function repoDir(root: string): string {
+  const jjDir = path.join(root, ".jj");
+  const repo = path.join(jjDir, "repo");
+  if (fs.statSync(repo).isFile()) {
+    return path.resolve(jjDir, fs.readFileSync(repo, "utf8").trim());
+  }
+  return repo;
 }

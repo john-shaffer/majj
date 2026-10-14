@@ -34,6 +34,27 @@
     "configuration": {
       "title": "Majj",
       "properties": {
+        "majj.autoRefresh.mode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "poll",
+            "watch"
+          ],
+          "enumDescriptions": [
+            "Only refresh when the status command or `majj.refresh` is run.",
+            "Refresh every `majj.autoRefresh.pollInterval` seconds while the status view is visible.",
+            "Refresh when jj records a new operation or a file in the workspace changes."
+          ],
+          "default": "watch",
+          "description": "How the status view keeps itself up to date."
+        },
+        "majj.autoRefresh.pollInterval": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "Seconds between refreshes when majj.autoRefresh.mode is \"poll\"."
+        },
         "majj.jjPath": {
           "type": "string",
           "default": "jj",

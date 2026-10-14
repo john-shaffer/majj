@@ -90,21 +90,25 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
         const view = viewFor(editor.document.uri);
         if (view) {
           decorator.apply(editor, view.content);
+          view.onDidBecomeVisible();
         }
       }
     }),
     vscode.workspace.onDidCloseTextDocument((doc) => {
       if (doc.uri.scheme === StatusView.scheme) {
+        views.get(doc.uri.query)?.dispose();
         views.delete(doc.uri.query);
       }
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("majj")) {
         for (const view of views.values()) {
-          void view.refresh();
+          view.configure();
+          view.requestRefresh();
         }
       }
     }),
+    { dispose: () => views.forEach((view) => view.dispose()) },
   );
 
   return { getStatus: (root) => views.get(root)?.content };
