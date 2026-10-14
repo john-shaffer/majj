@@ -18,6 +18,84 @@
     "magit"
   ],
   "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "majj.refresh",
+        "title": "Refresh Status",
+        "category": "Majj"
+      },
+      {
+        "command": "majj.status",
+        "title": "Status",
+        "category": "Majj"
+      }
+    ],
+    "configuration": {
+      "title": "Majj",
+      "properties": {
+        "majj.jjPath": {
+          "type": "string",
+          "default": "jj",
+          "description": "Path to the jj executable."
+        },
+        "majj.status.limit": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 0,
+          "description": "Maximum number of changes shown in the status view's change graph. 0 means no limit."
+        },
+        "majj.status.revset": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Revset shown in the status view's change graph. Empty uses jj's own default (`revsets.log`), e.g. set it to `ancestors(@, 10) | descendants(@)` to show only changes around the working copy."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[majj]": {
+        "editor.folding": false,
+        "editor.guides.indentation": false,
+        "editor.lineNumbers": "off",
+        "editor.minimap.enabled": false,
+        "editor.occurrencesHighlight": "off",
+        "editor.renderWhitespace": "none",
+        "editor.stickyScroll.enabled": false,
+        "editor.unicodeHighlight.ambiguousCharacters": false,
+        "editor.wordWrap": "off"
+      }
+    },
+    "keybindings": [
+      {
+        "command": "majj.refresh",
+        "key": "g",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.status",
+        "key": "alt+x j"
+      }
+    ],
+    "languages": [
+      {
+        "id": "majj",
+        "aliases": [
+          "Majj"
+        ],
+        "extensions": [
+          ".majj"
+        ]
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "majj.refresh",
+          "when": "editorLangId == majj"
+        }
+      ]
+    }
+  },
   "scripts": {
     "compile": "tsc -p ./",
     "test:unit": "node --test \"out/test/unit/**/*.test.js\"",
@@ -26,6 +104,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "~1.95.0",
+    "@vscode/test-electron": "^2.5.2",
     "typescript": "^5.9.0"
   },
   "license": "MIT"

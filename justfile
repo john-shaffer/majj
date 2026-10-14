@@ -26,6 +26,9 @@ format:
 # Run the unit tests
 test-unit: (_check "unit-tests")
 
+# Run the integration tests in VS Code
+test-vscode: (_check "vscode-tests")
+
 # Build a test report and fail with its log if the tests failed
 _check name: _snapshot
     #!/usr/bin/env bash

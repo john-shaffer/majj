@@ -10,7 +10,14 @@
       forAllSystems =
         f:
         lib.genAttrs [ "aarch64-darwin" "aarch64-linux" "x86_64-darwin" "x86_64-linux" ] (
-          system: f nixpkgs.legacyPackages.${system}
+          system:
+          f (
+            import nixpkgs {
+              inherit system;
+              # VS Code is only used to run the integration tests.
+              config.allowUnfreePredicate = pkg: lib.getName pkg == "vscode";
+            }
+          )
         );
       manifest = lib.importJSON ./package.json;
 
@@ -35,7 +42,7 @@
                     ./tsconfig.json
                   ];
                 };
-                npmDepsHash = "sha256-Bzm19EXNse2MFDQWs9xRbokIAq/PFvhbNeB+uR58KCs=";
+                npmDepsHash = "sha256-MNt4i11JxjOanff66Qizov1IvZh7YMiFOKmnGMKnTc0=";
                 npmBuildScript = "compile";
               }
               // args
@@ -79,6 +86,21 @@
 
           reports = {
             unit-tests = testReport "unit-tests" [ pkgs.nodejs ] "npm run test:unit";
+          }
+          // lib.optionalAttrs stdenv.hostPlatform.isLinux {
+            vscode-tests =
+              # MAJJ_TEST_VSCODE is the Electron binary: bin/code is the CLI
+              # launcher, which detaches.
+              testReport "vscode-tests"
+                [
+                  pkgs.jujutsu
+                  pkgs.nodejs
+                  pkgs.xvfb-run
+                ]
+                ''
+                  MAJJ_TEST_VSCODE=${pkgs.vscode}/lib/vscode/code \
+                    xvfb-run -a node out/test/integration/runTest.js
+                '';
           };
         in
         {
