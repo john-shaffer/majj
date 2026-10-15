@@ -4,9 +4,10 @@ import { StyledText } from "./ansi";
 import { Decorator } from "./decorations";
 import { findRoot } from "./jj";
 import { StatusView } from "./statusView";
+import { SCHEME, View } from "./view";
 
-/** Status views by workspace root. */
-const views = new Map<string, StatusView>();
+/** Open views by URI. */
+const views = new Map<string, View>();
 
 export interface MajjApi {
   /** The rendered status for a workspace root, if a status view for it is open. Used by tests. */
@@ -17,19 +18,18 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   const decorator = new Decorator();
   const changed = new vscode.EventEmitter<vscode.Uri>();
 
-  const editorsFor = (view: StatusView) =>
+  const editorsFor = (view: View) =>
     vscode.window.visibleTextEditors.filter(
       (e) => e.document.uri.toString() === view.uri.toString(),
     );
 
-  const viewFor = (uri: vscode.Uri) =>
-    uri.scheme === StatusView.scheme ? views.get(uri.query) : undefined;
+  const viewFor = (uri: vscode.Uri) => views.get(uri.toString());
 
-  const getView = (root: string) => {
-    let view = views.get(root);
+  const getView = (uri: vscode.Uri) => {
+    let view = viewFor(uri);
     if (!view) {
-      view = new StatusView(root, (v) => changed.fire(v.uri));
-      views.set(root, view);
+      view = new StatusView(uri.query, (v) => changed.fire(v.uri));
+      views.set(uri.toString(), view);
     }
     return view;
   };
@@ -38,7 +38,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     onDidChange: changed.event,
     async provideTextDocumentContent(uri) {
       // Views are created lazily here so that status tabs restored on startup work too.
-      const view = getView(uri.query);
+      const view = getView(uri);
       if (!view.loaded) {
         await view.refresh();
       }
@@ -51,8 +51,9 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     if (!root) {
       return;
     }
-    const existing = views.get(root);
-    let doc = await vscode.workspace.openTextDocument(StatusView.uriFor(root));
+    const uri = StatusView.uriFor(root);
+    const existing = viewFor(uri);
+    let doc = await vscode.workspace.openTextDocument(uri);
     if (doc.languageId !== "majj") {
       doc = await vscode.languages.setTextDocumentLanguage(doc, "majj");
     }
@@ -71,10 +72,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   context.subscriptions.push(
     decorator,
     changed,
-    vscode.workspace.registerTextDocumentContentProvider(
-      StatusView.scheme,
-      provider,
-    ),
+    vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.status", showStatus),
     vscode.commands.registerCommand("majj.refresh", refresh),
     vscode.workspace.onDidChangeTextDocument((e) => {
@@ -95,10 +93,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       }
     }),
     vscode.workspace.onDidCloseTextDocument((doc) => {
-      if (doc.uri.scheme === StatusView.scheme) {
-        views.get(doc.uri.query)?.dispose();
-        views.delete(doc.uri.query);
-      }
+      viewFor(doc.uri)?.dispose();
+      views.delete(doc.uri.toString());
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("majj")) {
@@ -111,7 +107,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     { dispose: () => views.forEach((view) => view.dispose()) },
   );
 
-  return { getStatus: (root) => views.get(root)?.content };
+  return { getStatus: (root) => viewFor(StatusView.uriFor(root))?.content };
 }
 
 /**
@@ -122,7 +118,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
  */
 async function resolveRoot(): Promise<string | undefined> {
   const active = vscode.window.activeTextEditor?.document.uri;
-  if (active?.scheme === StatusView.scheme) {
+  if (active?.scheme === SCHEME) {
     return active.query;
   }
   const candidates: string[] = [];

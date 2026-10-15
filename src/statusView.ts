@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { Style, StyledText, StyledTextBuilder } from "./ansi";
-import { AutoRefresh } from "./autoRefresh";
 import { getConfig } from "./config";
 import { JjError, runJj } from "./jj";
+import { SCHEME, View } from "./view";
 
 const HEADER: Style = { bold: true };
 const ERROR: Style = { bold: true, fg: { kind: "ansi", index: 1 } };
@@ -68,82 +68,22 @@ async function graphRevset(
 }
 
 /** The status buffer for one jj workspace, shown as the virtual document `majj:status.majj?<root>`. */
-export class StatusView implements vscode.Disposable {
-  static readonly scheme = "majj";
+export class StatusView extends View {
+  static readonly path = "status.majj";
 
   static uriFor(root: string): vscode.Uri {
     return vscode.Uri.from({
-      scheme: StatusView.scheme,
-      path: "status.majj",
+      scheme: SCHEME,
+      path: StatusView.path,
       query: root,
     });
   }
 
-  readonly uri: vscode.Uri;
-  content: StyledText = { lines: ["Loading…"], spans: [] };
-  loaded = false;
-  /** An auto refresh was skipped while the view was hidden. */
-  private stale = false;
-  private running?: Promise<void>;
-  private rerun = false;
-  private autoRefresh: AutoRefresh;
-
-  constructor(
-    readonly root: string,
-    private readonly onDidUpdate: (view: StatusView) => void,
-  ) {
-    this.uri = StatusView.uriFor(root);
-    this.autoRefresh = new AutoRefresh(root, () => this.requestRefresh());
-    this.configure();
+  constructor(root: string, onDidUpdate: (view: View) => void) {
+    super(StatusView.uriFor(root), onDidUpdate);
   }
 
-  configure() {
-    const { autoRefreshMode, pollIntervalSeconds } = getConfig();
-    this.autoRefresh.start(autoRefreshMode, pollIntervalSeconds);
-  }
-
-  /** Re-runs jj. Requests made while a refresh is running are coalesced into one more run. */
-  refresh(): Promise<void> {
-    if (this.running) {
-      this.rerun = true;
-      return this.running;
-    }
-    this.stale = false;
-    this.running = (async () => {
-      do {
-        this.rerun = false;
-        this.content = await renderStatus(this.root);
-      } while (this.rerun);
-    })().finally(() => {
-      this.running = undefined;
-      this.loaded = true;
-      this.onDidUpdate(this);
-    });
-    return this.running;
-  }
-
-  /** Refreshes now if the view is on screen, otherwise when it next becomes visible. */
-  requestRefresh() {
-    if (this.isVisible()) {
-      void this.refresh();
-    } else {
-      this.stale = true;
-    }
-  }
-
-  onDidBecomeVisible() {
-    if (this.stale) {
-      void this.refresh();
-    }
-  }
-
-  private isVisible(): boolean {
-    return vscode.window.visibleTextEditors.some(
-      (e) => e.document.uri.toString() === this.uri.toString(),
-    );
-  }
-
-  dispose() {
-    this.autoRefresh.dispose();
+  protected render(): Promise<StyledText> {
+    return renderStatus(this.root);
   }
 }
