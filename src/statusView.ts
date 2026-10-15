@@ -6,6 +6,7 @@ import { JjError, runJj } from "./jj";
 
 const HEADER: Style = { bold: true };
 const ERROR: Style = { bold: true, fg: { kind: "ansi", index: 1 } };
+const NO_REPO = /There is no jj repo in/;
 
 export async function renderStatus(root: string): Promise<StyledText> {
   const { limit, recentChanges, revset } = getConfig();
@@ -32,6 +33,12 @@ export async function renderStatus(root: string): Promise<StyledText> {
     }
     out.newline().appendAnsi(log);
   } catch (e) {
+    if (e instanceof JjError && NO_REPO.test(e.message)) {
+      out.append(`No jj repository in ${root}`, HEADER).separate();
+      out.appendAnsi(e.output).separate();
+      out.append("Create one with `jj git init`, then press g to refresh.");
+      return out.build();
+    }
     out.append("jj failed:", ERROR).newline();
     if (e instanceof JjError) {
       out.appendAnsi(e.output);

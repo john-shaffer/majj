@@ -166,3 +166,16 @@ test("recent changes are shown even when the log revset hides them", async () =>
     await setConfig("status.recentChanges", undefined);
   }
 });
+
+test("a directory outside any jj repo gets an explanatory status view", async () => {
+  const dir = fs.mkdtempSync(path.join(path.dirname(repo), "no-repo-"));
+  const doc = await vscode.workspace.openTextDocument(
+    vscode.Uri.from({ scheme: "majj", path: "status.majj", query: dir }),
+  );
+  await vscode.window.showTextDocument(doc);
+  await waitFor("the explanation", () =>
+    doc.getText().startsWith(`No jj repository in ${dir}`),
+  );
+  assert.ok(doc.getText().includes("jj git init"), doc.getText());
+  assert.ok(!doc.getText().includes("jj failed"), doc.getText());
+});

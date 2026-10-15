@@ -114,7 +114,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   return { getStatus: (root) => views.get(root)?.content };
 }
 
-/** The jj workspace of the active editor, or else of the first workspace folder that is in one. */
+/**
+ * The jj workspace of the active editor, or else of the first workspace folder
+ * that is in one. If there is none, the directory to explain that for: the
+ * workspace folder of the active file, the file's directory, or else the first
+ * workspace folder.
+ */
 async function resolveRoot(): Promise<string | undefined> {
   const active = vscode.window.activeTextEditor?.document.uri;
   if (active?.scheme === StatusView.scheme) {
@@ -129,19 +134,23 @@ async function resolveRoot(): Promise<string | undefined> {
       candidates.push(folder.uri.fsPath);
     }
   }
-  let lastError: unknown;
   for (const dir of candidates) {
     try {
       return await findRoot(dir);
-    } catch (e) {
-      lastError = e;
+    } catch {
+      // Try the next candidate.
     }
   }
-  const detail = lastError instanceof Error ? `: ${lastError.message}` : "";
-  void vscode.window.showErrorMessage(
-    `majj: no jj repository found for the active file or workspace${detail}`,
-  );
-  return undefined;
+  const activeFolder = active && vscode.workspace.getWorkspaceFolder(active);
+  if (activeFolder?.uri.scheme === "file") {
+    return activeFolder.uri.fsPath;
+  }
+  if (candidates.length === 0) {
+    void vscode.window.showErrorMessage(
+      "majj: open a file or folder to show its jj status",
+    );
+  }
+  return candidates[0];
 }
 
 export function deactivate() {}

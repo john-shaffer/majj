@@ -8,7 +8,8 @@ Early days: for now there is only a status view.
 ## Status view
 
 Run **Majj: Status** (`alt+x j`) to open `status.majj` for the jj workspace of the
-active file (or the first workspace folder in a jj repo). It shows `jj status`
+active file (or the first workspace folder in a jj repo). Outside of any jj repo,
+the view says so and how to create one. It shows `jj status`
 followed by the change graph from `jj log`, with jj's own colors:
 
 ```
