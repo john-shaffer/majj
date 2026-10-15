@@ -49,6 +49,7 @@ Change them in **Preferences: Open Keyboard Shortcuts** (search for "majj"), or 
 | `majj.autoRefresh.pollInterval` | `5`     | Seconds between refreshes in `poll` mode. |
 | `majj.jjPath`                   | `jj`    | jj executable. |
 | `majj.status.limit`             | `50`    | Maximum changes in the graph (0 = no limit). |
+| `majj.status.recentChanges`     | `10`    | Ancestors of `@` always shown in the graph when `status.revset` is empty. |
 | `majj.status.revset`            | `""`    | Revset for the change graph; empty uses jj's `revsets.log`. |
 
 jj has no way to subscribe to repository changes (its watchman integration only

@@ -66,6 +66,12 @@
           "minimum": 0,
           "description": "Maximum number of changes shown in the status view's change graph. 0 means no limit."
         },
+        "majj.status.recentChanges": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 0,
+          "markdownDescription": "Number of the working copy's ancestors always shown in the status view's change graph, so that it has some context even when everything is pushed. Only applies when `#majj.status.revset#` is empty."
+        },
         "majj.status.revset": {
           "type": "string",
           "default": "",

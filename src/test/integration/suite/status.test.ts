@@ -145,3 +145,24 @@ test("revset and limit settings apply to the change graph", async () => {
     return changes?.[0] === "Changes:" && changes.length === 3;
   });
 });
+
+test("recent changes are shown even when the log revset hides them", async () => {
+  await setConfig("status.limit", undefined);
+  jj("config", "set", "--repo", "revsets.log", "@");
+  try {
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("the recent changes", () =>
+      statusText().includes("First change"),
+    );
+
+    await setConfig("status.recentChanges", 0);
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor(
+      "the recent changes to go",
+      () => !statusText().includes("First change"),
+    );
+  } finally {
+    jj("config", "unset", "--repo", "revsets.log");
+    await setConfig("status.recentChanges", undefined);
+  }
+});

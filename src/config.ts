@@ -7,6 +7,7 @@ export interface MajjConfig {
   jjPath: string;
   limit: number;
   pollIntervalSeconds: number;
+  recentChanges: number;
   revset: string;
 }
 
@@ -20,6 +21,7 @@ export function getConfig(): MajjConfig {
       1,
       config.get<number>("autoRefresh.pollInterval", 5),
     ),
+    recentChanges: config.get<number>("status.recentChanges", 10),
     revset: config.get<string>("status.revset", "").trim(),
   };
 }
