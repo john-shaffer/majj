@@ -29,6 +29,11 @@
         "command": "majj.status",
         "title": "Status",
         "category": "Majj"
+      },
+      {
+        "command": "majj.visit",
+        "title": "Visit Change at Point",
+        "category": "Majj"
       }
     ],
     "configuration": {
@@ -101,6 +106,11 @@
       {
         "command": "majj.status",
         "key": "alt+x j"
+      },
+      {
+        "command": "majj.visit",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == majj"
       }
     ],
     "languages": [
@@ -118,6 +128,10 @@
       "commandPalette": [
         {
           "command": "majj.refresh",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.visit",
           "when": "editorLangId == majj"
         }
       ]

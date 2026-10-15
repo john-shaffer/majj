@@ -178,4 +178,26 @@ test("a directory outside any jj repo gets an explanatory status view", async ()
   );
   assert.ok(doc.getText().includes("jj git init"), doc.getText());
   assert.ok(!doc.getText().includes("jj failed"), doc.getText());
+  await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+});
+
+test("visiting a change in the graph shows it", async () => {
+  await vscode.commands.executeCommand("majj.status");
+  await waitFor("the graph", () => statusText().includes("Second change"));
+  const editor = vscode.window.activeTextEditor!;
+  // The description line, below the line with the graph node.
+  const lines = editor.document.getText().split("\n");
+  const line = lines.findIndex(
+    (l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"),
+  );
+  editor.selection = new vscode.Selection(line, 0, line, 0);
+  await vscode.commands.executeCommand("majj.visit");
+
+  const doc = vscode.window.activeTextEditor!.document;
+  assert.equal(doc.uri.path, "change.majj");
+  assert.equal(doc.languageId, "majj");
+  await waitFor("the change", () => doc.getText().includes("Second change"));
+  assert.match(doc.getText(), /^Commit ID: /m);
+  assert.match(doc.getText(), /b\.txt/);
+  assert.ok(!doc.getText().includes("\x1b"), "escape codes leaked");
 });

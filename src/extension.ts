@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { StyledText } from "./ansi";
+import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { findRoot } from "./jj";
 import { StatusView } from "./statusView";
@@ -28,7 +29,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   const getView = (uri: vscode.Uri) => {
     let view = viewFor(uri);
     if (!view) {
-      view = new StatusView(uri.query, (v) => changed.fire(v.uri));
+      const ViewClass = uri.path === ChangeView.path ? ChangeView : StatusView;
+      view = new ViewClass(uri, (v) => changed.fire(v.uri));
       views.set(uri.toString(), view);
     }
     return view;
@@ -46,6 +48,14 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     },
   };
 
+  const showView = async (uri: vscode.Uri, preview: boolean) => {
+    let doc = await vscode.workspace.openTextDocument(uri);
+    if (doc.languageId !== "majj") {
+      doc = await vscode.languages.setTextDocumentLanguage(doc, "majj");
+    }
+    await vscode.window.showTextDocument(doc, { preview });
+  };
+
   const showStatus = async () => {
     const root = await resolveRoot();
     if (!root) {
@@ -53,14 +63,23 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
     const uri = StatusView.uriFor(root);
     const existing = viewFor(uri);
-    let doc = await vscode.workspace.openTextDocument(uri);
-    if (doc.languageId !== "majj") {
-      doc = await vscode.languages.setTextDocumentLanguage(doc, "majj");
-    }
-    await vscode.window.showTextDocument(doc, { preview: false });
+    await showView(uri, false);
     // Like magit, invoking status on an already open view refreshes it.
     if (existing?.loaded) {
       await existing.refresh();
+    }
+  };
+
+  // Like magit's revision buffer, change views open as a preview so that
+  // visiting another change replaces the tab rather than piling them up.
+  const visit = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (editor && view instanceof StatusView) {
+      const change = view.changeAt(editor.selection.active.line);
+      if (change) {
+        await showView(ChangeView.uriFor(view.root, change), true);
+      }
     }
   };
 
@@ -74,6 +93,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.status", showStatus),
+    vscode.commands.registerCommand("majj.visit", visit),
     vscode.commands.registerCommand("majj.refresh", refresh),
     vscode.workspace.onDidChangeTextDocument((e) => {
       const view = viewFor(e.document.uri);

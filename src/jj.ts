@@ -38,6 +38,10 @@ export function runJj(
   });
 }
 
+export async function configGet(cwd: string, name: string): Promise<string> {
+  return (await runJj(cwd, ["config", "get", name])).trim();
+}
+
 /** The root of the jj workspace containing `dir`. */
 export async function findRoot(dir: string): Promise<string> {
   return (await runJj(dir, ["root"])).trim();

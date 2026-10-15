@@ -1,10 +1,22 @@
 import * as vscode from "vscode";
-import { StyledText } from "./ansi";
+import { Style, StyledText, StyledTextBuilder } from "./ansi";
 import { AutoRefresh } from "./autoRefresh";
 import { getConfig } from "./config";
+import { JjError } from "./jj";
 
 /** The URI scheme of majj's virtual documents. Their query is the workspace root. */
 export const SCHEME = "majj";
+
+const ERROR: Style = { bold: true, fg: { kind: "ansi", index: 1 } };
+
+export function appendError(out: StyledTextBuilder, e: unknown) {
+  out.append("jj failed:", ERROR).newline();
+  if (e instanceof JjError) {
+    out.appendAnsi(e.output);
+  } else {
+    out.append(String(e));
+  }
+}
 
 /** A virtual document rendered from jj output, kept up to date while it is visible. */
 export abstract class View implements vscode.Disposable {

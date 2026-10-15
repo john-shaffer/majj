@@ -178,6 +178,11 @@ export class StyledTextBuilder {
     return this;
   }
 
+  /** The index of the line that text is appended to. */
+  get line(): number {
+    return this.lines.length - 1;
+  }
+
   newline(): this {
     this.lines.push("");
     return this;

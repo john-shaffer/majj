@@ -1,23 +1,42 @@
 import * as vscode from "vscode";
 import { Style, StyledText, StyledTextBuilder } from "./ansi";
 import { getConfig } from "./config";
-import { JjError, runJj } from "./jj";
-import { SCHEME, View } from "./view";
+import { configGet, JjError, runJj } from "./jj";
+import { appendError, SCHEME, View } from "./view";
 
 const HEADER: Style = { bold: true };
-const ERROR: Style = { bold: true, fg: { kind: "ansi", index: 1 } };
 const NO_REPO = /There is no jj repo in/;
 
-export async function renderStatus(root: string): Promise<StyledText> {
+// Each log entry starts with its change ID between \x1e and \x1f, so that
+// lines can be mapped to changes whatever the user's log template looks like.
+// A divergent change ID is ambiguous, so those entries use their commit ID.
+const MARK = /\x1e([^\x1f]*)\x1f/;
+const markedTemplate = (template: string) =>
+  `"\\x1e" ++ stringify(if(divergent, commit_id, change_id)) ++ "\\x1f" ++ (${template})`;
+
+export interface Status {
+  text: StyledText;
+  /** The change shown on each line of the change graph, by line index. */
+  changes: Map<number, string>;
+}
+
+export async function renderStatus(root: string): Promise<Status> {
   const { limit, recentChanges, revset } = getConfig();
   const out = new StyledTextBuilder();
+  const changes = new Map<number, string>();
   try {
     // `jj status` snapshots the working copy, so the log can skip doing it again.
-    const [status, logRevset] = await Promise.all([
+    const [status, logRevset, logTemplate] = await Promise.all([
       runJj(root, ["status"], { color: true }),
       revset || graphRevset(root, recentChanges),
+      configGet(root, "templates.log"),
     ]);
-    const logArgs = ["log", "--ignore-working-copy"];
+    const logArgs = [
+      "log",
+      "--ignore-working-copy",
+      "-T",
+      markedTemplate(logTemplate),
+    ];
     if (logRevset) {
       logArgs.push("-r", logRevset);
     }
@@ -31,22 +50,26 @@ export async function renderStatus(root: string): Promise<StyledText> {
     if (revset) {
       out.append(` ${revset}`);
     }
-    out.newline().appendAnsi(log);
+    out.newline();
+    let change: string | undefined;
+    for (const line of log.split("\n")) {
+      const mark = MARK.exec(line);
+      change = mark?.[1] ?? change;
+      if (change) {
+        changes.set(out.line, change);
+      }
+      out.appendAnsi(mark ? line.replace(mark[0], "") : line).newline();
+    }
   } catch (e) {
     if (e instanceof JjError && NO_REPO.test(e.message)) {
       out.append(`No jj repository in ${root}`, HEADER).separate();
       out.appendAnsi(e.output).separate();
       out.append("Create one with `jj git init`, then press g to refresh.");
-      return out.build();
-    }
-    out.append("jj failed:", ERROR).newline();
-    if (e instanceof JjError) {
-      out.appendAnsi(e.output);
     } else {
-      out.append(String(e));
+      appendError(out, e);
     }
   }
-  return out.build();
+  return { text: out.build(), changes };
 }
 
 /**
@@ -61,9 +84,7 @@ async function graphRevset(
   if (recentChanges <= 0) {
     return undefined;
   }
-  const logRevset = (
-    await runJj(root, ["config", "get", "revsets.log"])
-  ).trim();
+  const logRevset = await configGet(root, "revsets.log");
   return `(${logRevset}) | ancestors(@, ${recentChanges + 1})`;
 }
 
@@ -79,11 +100,16 @@ export class StatusView extends View {
     });
   }
 
-  constructor(root: string, onDidUpdate: (view: View) => void) {
-    super(StatusView.uriFor(root), onDidUpdate);
+  private changes = new Map<number, string>();
+
+  /** The ID of the change shown on a line of the change graph. */
+  changeAt(line: number): string | undefined {
+    return this.changes.get(line);
   }
 
-  protected render(): Promise<StyledText> {
-    return renderStatus(this.root);
+  protected async render(): Promise<StyledText> {
+    const { text, changes } = await renderStatus(this.root);
+    this.changes = changes;
+    return text;
   }
 }

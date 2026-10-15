@@ -25,7 +25,9 @@ Changes:
 │  Retry requests rejected for an expired signature
 ```
 
-Press `g` in the view to refresh it.
+Press `g` in the view to refresh it, and `enter` on a change in the graph to
+open `change.majj` with its `jj show` output. Like magit's revision buffer, it
+opens as a preview tab, which the next change you visit replaces.
 
 ## Keybindings
 
@@ -33,6 +35,7 @@ Press `g` in the view to refresh it.
 | -------------- | -------- | -------------------- |
 | `majj.refresh` | `g`      | in the status view   |
 | `majj.status`  | `alt+x j` | anywhere            |
+| `majj.visit`   | `enter`  | in the status view   |
 
 Change them in **Preferences: Open Keyboard Shortcuts** (search for "majj"), or in
 `keybindings.json`:
