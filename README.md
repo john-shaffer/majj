@@ -3,7 +3,7 @@
 A [Magit](https://magit.vc/)-style interface for [Jujutsu (jj)](https://github.com/jj-vcs/jj) in VS Code,
 in the spirit of [edamagit](https://github.com/kahole/edamagit).
 
-Early days: for now there is only a status view.
+Early days: for now there is a status view and a change view.
 
 ## Status view
 
