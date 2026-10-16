@@ -1,8 +1,9 @@
 {
   description = "majj: a Magit-style interface for Jujutsu (jj) in VS Code";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
+  # Latest stable nixpkgs
+  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
+  
   outputs =
     { self, nixpkgs }:
     let
