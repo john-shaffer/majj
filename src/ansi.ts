@@ -164,17 +164,18 @@ export class StyledTextBuilder {
     return this;
   }
 
-  appendAnsi(text: string): this {
+  /** Appends text with ANSI escapes, passing each style through `map` first. */
+  appendAnsi(text: string, map: (style: Style) => Style = (s) => s): this {
     let style: Style = {};
     let last = 0;
     for (const m of text.matchAll(ESCAPE)) {
-      this.append(text.slice(last, m.index), style);
+      this.append(text.slice(last, m.index), map(style));
       last = m.index! + m[0].length;
       if (m[2] === "m") {
         style = applySgr(style, m[1]);
       }
     }
-    this.append(text.slice(last), style);
+    this.append(text.slice(last), map(style));
     return this;
   }
 
