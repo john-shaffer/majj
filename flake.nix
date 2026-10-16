@@ -3,7 +3,7 @@
 
   # Latest stable nixpkgs
   inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
-  
+
   outputs =
     { self, nixpkgs }:
     let
