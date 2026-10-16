@@ -10,8 +10,7 @@ const FILE: Style = { fg: { kind: "ansi", index: 3 } };
 const STAT_SUMMARY = /^\d+ files? changed/;
 const DIFF_GIT = /^diff --git /;
 // Extended header lines that the file's label or path stands in for.
-const HIDDEN =
-  /^(index |--- |\+\+\+ |(new|deleted) file mode |(rename|copy) (from|to) |(dis)?similarity index )/;
+const HIDDEN = /^(index |--- |\+\+\+ |(new|deleted) file mode |(rename|copy) (from|to) |(dis)?similarity index )/;
 
 interface FileDiff {
   label: string;
@@ -45,9 +44,7 @@ export function appendShow(out: StyledTextBuilder, ansi: string) {
  */
 function findDiffStart(lines: string[]): number {
   const summary = lines.findIndex((l) => STAT_SUMMARY.test(stripAnsi(l)));
-  const start = lines.findIndex(
-    (l, i) => i > summary && DIFF_GIT.test(stripAnsi(l)),
-  );
+  const start = lines.findIndex((l, i) => i > summary && DIFF_GIT.test(stripAnsi(l)));
   return summary < 0 || start < 0 ? lines.length : start;
 }
 
@@ -100,7 +97,5 @@ function parseFiles(lines: string[]): FileDiff[] {
 function gitHeaderPath(paths: string): string {
   const half = (paths.length - 1) / 2;
   const path = Number.isInteger(half) ? paths.slice(0, half) : paths;
-  return path.startsWith("a/") && paths.slice(half + 1).startsWith("b/")
-    ? path.slice(2)
-    : path;
+  return path.startsWith("a/") && paths.slice(half + 1).startsWith("b/") ? path.slice(2) : path;
 }

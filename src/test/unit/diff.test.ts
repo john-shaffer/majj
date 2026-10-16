@@ -117,9 +117,5 @@ test("an empty change has no Changes section", () => {
 
 0 files changed, 0 insertions(+), 0 deletions(-)
 `);
-  assert.deepEqual(text.lines, [
-    "Commit ID: abc",
-    "",
-    "0 files changed, 0 insertions(+), 0 deletions(-)",
-  ]);
+  assert.deepEqual(text.lines, ["Commit ID: abc", "", "0 files changed, 0 insertions(+), 0 deletions(-)"]);
 });

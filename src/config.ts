@@ -17,10 +17,7 @@ export function getConfig(): MajjConfig {
     autoRefreshMode: config.get<AutoRefreshMode>("autoRefresh.mode", "watch"),
     jjPath: config.get<string>("jjPath") || "jj",
     limit: config.get<number>("status.limit", 50),
-    pollIntervalSeconds: Math.max(
-      1,
-      config.get<number>("autoRefresh.pollInterval", 5),
-    ),
+    pollIntervalSeconds: Math.max(1, config.get<number>("autoRefresh.pollInterval", 5)),
     recentChanges: config.get<number>("status.recentChanges", 10),
     revset: config.get<string>("status.revset", "").trim(),
   };

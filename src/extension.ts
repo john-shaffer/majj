@@ -20,9 +20,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   const changed = new vscode.EventEmitter<vscode.Uri>();
 
   const editorsFor = (view: View) =>
-    vscode.window.visibleTextEditors.filter(
-      (e) => e.document.uri.toString() === view.uri.toString(),
-    );
+    vscode.window.visibleTextEditors.filter((e) => e.document.uri.toString() === view.uri.toString());
 
   const viewFor = (uri: vscode.Uri) => views.get(uri.toString());
 
@@ -162,9 +160,7 @@ async function resolveRoot(): Promise<string | undefined> {
     return activeFolder.uri.fsPath;
   }
   if (candidates.length === 0) {
-    void vscode.window.showErrorMessage(
-      "majj: open a file or folder to show its jj status",
-    );
+    void vscode.window.showErrorMessage("majj: open a file or folder to show its jj status");
   }
   return candidates[0];
 }

@@ -8,13 +8,10 @@ import { test } from "./index";
 
 const repo = fs.realpathSync(process.env.MAJJ_TEST_REPO!);
 
-const jj = (...args: string[]) =>
-  execFileSync("jj", ["--no-pager", ...args], { cwd: repo, encoding: "utf8" });
+const jj = (...args: string[]) => execFileSync("jj", ["--no-pager", ...args], { cwd: repo, encoding: "utf8" });
 
 const statusText = () =>
-  vscode.workspace.textDocuments
-    .find((d) => d.uri.scheme === "majj" && d.uri.query === repo)
-    ?.getText() ?? "";
+  vscode.workspace.textDocuments.find((d) => d.uri.scheme === "majj" && d.uri.query === repo)?.getText() ?? "";
 
 /** The lines of the status view's change graph, starting with its header. */
 function changesSection(): string[] | undefined {
@@ -23,17 +20,11 @@ function changesSection(): string[] | undefined {
   return start < 0 ? undefined : lines.slice(start);
 }
 
-async function waitFor(
-  what: string,
-  condition: () => boolean,
-  timeoutMs = 10000,
-) {
+async function waitFor(what: string, condition: () => boolean, timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
   while (!condition()) {
     if (Date.now() > deadline) {
-      assert.fail(
-        `timed out waiting for ${what}. Status view:\n${statusText()}`,
-      );
+      assert.fail(`timed out waiting for ${what}. Status view:\n${statusText()}`);
     }
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -42,9 +33,7 @@ async function waitFor(
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function setConfig(key: string, value: unknown) {
-  await vscode.workspace
-    .getConfiguration("majj")
-    .update(key, value, vscode.ConfigurationTarget.Global);
+  await vscode.workspace.getConfiguration("majj").update(key, value, vscode.ConfigurationTarget.Global);
 }
 
 test("status command opens the status view", async () => {
@@ -56,23 +45,11 @@ test("status command opens the status view", async () => {
   await waitFor("status to load", () => statusText().includes("Changes:"));
 
   const text = statusText();
-  const workingCopy = jj(
-    "log",
-    "--no-graph",
-    "-r",
-    "@",
-    "-T",
-    "change_id.shortest(8)",
-  );
+  const workingCopy = jj("log", "--no-graph", "-r", "@", "-T", "change_id.shortest(8)");
   assert.match(text, /Working copy changes:\nA c\.txt/);
   assert.match(text, new RegExp(`Working copy\\s+\\(@\\)\\s*: ${workingCopy}`));
   assert.match(text, new RegExp(`^@  ${workingCopy} `, "m"));
-  for (const description of [
-    "First change",
-    "Second change",
-    "Sibling change",
-    "Descendant change",
-  ]) {
+  for (const description of ["First change", "Second change", "Sibling change", "Descendant change"]) {
     assert.ok(text.includes(description), `missing "${description}"`);
   }
   assert.ok(text.includes("feature"), "missing bookmark");
@@ -92,9 +69,7 @@ test("jj colors are kept as styled spans", async () => {
 test("watch mode picks up operations from the jj CLI", async () => {
   await setConfig("autoRefresh.mode", "watch");
   jj("describe", "-m", "Described from the CLI");
-  await waitFor("the new description", () =>
-    statusText().includes("Described from the CLI"),
-  );
+  await waitFor("the new description", () => statusText().includes("Described from the CLI"));
 });
 
 test("watch mode picks up file edits", async () => {
@@ -107,10 +82,7 @@ test("off mode only refreshes on demand", async () => {
   await sleep(500);
   fs.writeFileSync(path.join(repo, "unwatched.txt"), "x\n");
   await sleep(1500);
-  assert.ok(
-    !statusText().includes("unwatched.txt"),
-    "refreshed although auto refresh is off",
-  );
+  assert.ok(!statusText().includes("unwatched.txt"), "refreshed although auto refresh is off");
   await vscode.commands.executeCommand("majj.refresh");
   await waitFor("the refresh", () => statusText().includes("A unwatched.txt"));
 });
@@ -120,11 +92,7 @@ test("poll mode refreshes periodically", async () => {
   await setConfig("autoRefresh.mode", "poll");
   await sleep(500);
   fs.writeFileSync(path.join(repo, "polled.txt"), "x\n");
-  await waitFor(
-    "the polled file",
-    () => statusText().includes("A polled.txt"),
-    5000,
-  );
+  await waitFor("the polled file", () => statusText().includes("A polled.txt"), 5000);
 });
 
 test("revset and limit settings apply to the change graph", async () => {
@@ -151,16 +119,11 @@ test("recent changes are shown even when the log revset hides them", async () =>
   jj("config", "set", "--repo", "revsets.log", "@");
   try {
     await vscode.commands.executeCommand("majj.refresh");
-    await waitFor("the recent changes", () =>
-      statusText().includes("First change"),
-    );
+    await waitFor("the recent changes", () => statusText().includes("First change"));
 
     await setConfig("status.recentChanges", 0);
     await vscode.commands.executeCommand("majj.refresh");
-    await waitFor(
-      "the recent changes to go",
-      () => !statusText().includes("First change"),
-    );
+    await waitFor("the recent changes to go", () => !statusText().includes("First change"));
   } finally {
     jj("config", "unset", "--repo", "revsets.log");
     await setConfig("status.recentChanges", undefined);
@@ -173,9 +136,7 @@ test("a directory outside any jj repo gets an explanatory status view", async ()
     vscode.Uri.from({ scheme: "majj", path: "status.majj", query: dir }),
   );
   await vscode.window.showTextDocument(doc);
-  await waitFor("the explanation", () =>
-    doc.getText().startsWith(`No jj repository in ${dir}`),
-  );
+  await waitFor("the explanation", () => doc.getText().startsWith(`No jj repository in ${dir}`));
   assert.ok(doc.getText().includes("jj git init"), doc.getText());
   assert.ok(!doc.getText().includes("jj failed"), doc.getText());
   await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
@@ -187,9 +148,7 @@ test("visiting a change in the graph shows it", async () => {
   const editor = vscode.window.activeTextEditor!;
   // The description line, below the line with the graph node.
   const lines = editor.document.getText().split("\n");
-  const line = lines.findIndex(
-    (l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"),
-  );
+  const line = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"));
   editor.selection = new vscode.Selection(line, 0, line, 0);
   await vscode.commands.executeCommand("majj.visit");
 

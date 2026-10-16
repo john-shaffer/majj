@@ -1,25 +1,14 @@
 import * as vscode from "vscode";
 import { Color, Style, StyledText, styleKey } from "./ansi";
 
-const ANSI_NAMES = [
-  "Black",
-  "Red",
-  "Green",
-  "Yellow",
-  "Blue",
-  "Magenta",
-  "Cyan",
-  "White",
-];
+const ANSI_NAMES = ["Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White"];
 
 function toCssColor(color: Color): string | vscode.ThemeColor {
   if (color.kind === "rgb") {
     return `rgb(${color.r}, ${color.g}, ${color.b})`;
   }
   const name = ANSI_NAMES[color.index % 8];
-  return new vscode.ThemeColor(
-    color.index < 8 ? `terminal.ansi${name}` : `terminal.ansiBright${name}`,
-  );
+  return new vscode.ThemeColor(color.index < 8 ? `terminal.ansi${name}` : `terminal.ansiBright${name}`);
 }
 
 function toDecorationOptions(style: Style): vscode.DecorationRenderOptions {
@@ -43,12 +32,7 @@ export class Decorator implements vscode.Disposable {
     for (const span of text.spans) {
       const key = styleKey(span.style);
       if (!this.types.has(key)) {
-        this.types.set(
-          key,
-          vscode.window.createTextEditorDecorationType(
-            toDecorationOptions(span.style),
-          ),
-        );
+        this.types.set(key, vscode.window.createTextEditorDecorationType(toDecorationOptions(span.style)));
       }
       let list = ranges.get(key);
       if (!list) {

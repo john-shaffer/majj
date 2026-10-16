@@ -31,12 +31,7 @@ export async function renderStatus(root: string): Promise<Status> {
       revset || graphRevset(root, recentChanges),
       configGet(root, "templates.log"),
     ]);
-    const logArgs = [
-      "log",
-      "--ignore-working-copy",
-      "-T",
-      markedTemplate(logTemplate),
-    ];
+    const logArgs = ["log", "--ignore-working-copy", "-T", markedTemplate(logTemplate)];
     if (logRevset) {
       logArgs.push("-r", logRevset);
     }
@@ -77,10 +72,7 @@ export async function renderStatus(root: string): Promise<Status> {
  * ancestors. Like magit's recent commits, they give the graph some context
  * when everything is pushed and the default revset shows little else.
  */
-async function graphRevset(
-  root: string,
-  recentChanges: number,
-): Promise<string | undefined> {
+async function graphRevset(root: string, recentChanges: number): Promise<string | undefined> {
   if (recentChanges <= 0) {
     return undefined;
   }

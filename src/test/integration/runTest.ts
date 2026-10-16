@@ -12,8 +12,7 @@ import * as path from "path";
 import { runTests } from "@vscode/test-electron";
 
 function makeFixtureRepo(dir: string, env: NodeJS.ProcessEnv) {
-  const jj = (...args: string[]) =>
-    execFileSync("jj", args, { cwd: dir, env, stdio: "pipe" });
+  const jj = (...args: string[]) => execFileSync("jj", args, { cwd: dir, env, stdio: "pipe" });
   fs.mkdirSync(dir, { recursive: true });
   jj("git", "init");
   fs.writeFileSync(path.join(dir, "a.txt"), "a\n");
@@ -31,10 +30,7 @@ async function main() {
   const repo = path.join(tmp, "repo");
   // Keep the user's jj config (templates, colors, revsets) out of the test.
   const jjConfig = path.join(tmp, "jj-config.toml");
-  fs.writeFileSync(
-    jjConfig,
-    '[user]\nname = "Majj Test"\nemail = "majj-test@example.com"\n',
-  );
+  fs.writeFileSync(jjConfig, '[user]\nname = "Majj Test"\nemail = "majj-test@example.com"\n');
   const env = { ...process.env, JJ_CONFIG: jjConfig };
   makeFixtureRepo(repo, env);
 

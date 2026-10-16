@@ -44,10 +44,7 @@ export class AutoRefresh implements vscode.Disposable {
     this.disposables.push({ dispose: () => clearTimeout(timer) });
 
     try {
-      const opHeads = fs.watch(
-        path.join(repoDir(this.root), "op_heads", "heads"),
-        debounced,
-      );
+      const opHeads = fs.watch(path.join(repoDir(this.root), "op_heads", "heads"), debounced);
       opHeads.on("error", () => opHeads.close());
       this.disposables.push({ dispose: () => opHeads.close() });
     } catch (e) {
@@ -64,12 +61,7 @@ export class AutoRefresh implements vscode.Disposable {
         debounced();
       }
     };
-    this.disposables.push(
-      files,
-      files.onDidCreate(onFile),
-      files.onDidChange(onFile),
-      files.onDidDelete(onFile),
-    );
+    this.disposables.push(files, files.onDidCreate(onFile), files.onDidChange(onFile), files.onDidDelete(onFile));
   }
 
   dispose() {

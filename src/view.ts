@@ -81,9 +81,7 @@ export abstract class View implements vscode.Disposable {
   }
 
   private isVisible(): boolean {
-    return vscode.window.visibleTextEditors.some(
-      (e) => e.document.uri.toString() === this.uri.toString(),
-    );
+    return vscode.window.visibleTextEditors.some((e) => e.document.uri.toString() === this.uri.toString());
   }
 
   protected abstract render(): Promise<StyledText>;

@@ -29,33 +29,18 @@ export interface StyledText {
 }
 
 // CSI sequences (SGR when the final byte is "m"), OSC sequences (e.g. hyperlinks) and other two-byte escapes.
-const ESCAPE =
-  /\x1b(?:\[([0-9;:?]*)([@-~])|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])/g;
+const ESCAPE = /\x1b(?:\[([0-9;:?]*)([@-~])|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])/g;
 
 export function stripAnsi(text: string): string {
   return text.replace(ESCAPE, "");
 }
 
 export function styleKey(style: Style): string {
-  return JSON.stringify([
-    style.fg,
-    style.bg,
-    !!style.bold,
-    !!style.dim,
-    !!style.italic,
-    !!style.underline,
-  ]);
+  return JSON.stringify([style.fg, style.bg, !!style.bold, !!style.dim, !!style.italic, !!style.underline]);
 }
 
 function isPlain(style: Style): boolean {
-  return (
-    !style.fg &&
-    !style.bg &&
-    !style.bold &&
-    !style.dim &&
-    !style.italic &&
-    !style.underline
-  );
+  return !style.fg && !style.bg && !style.bold && !style.dim && !style.italic && !style.underline;
 }
 
 const ansi = (index: number): Color => ({ kind: "ansi", index });
@@ -79,10 +64,7 @@ export function color256(n: number): Color {
 }
 
 export function applySgr(current: Style, params: string): Style {
-  const codes =
-    params === ""
-      ? [0]
-      : params.split(/[;:]/).map((p) => (p === "" ? 0 : Number(p)));
+  const codes = params === "" ? [0] : params.split(/[;:]/).map((p) => (p === "" ? 0 : Number(p)));
   let style: Style = { ...current };
   for (let i = 0; i < codes.length; i++) {
     const c = codes[i];

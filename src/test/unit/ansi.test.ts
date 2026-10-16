@@ -12,9 +12,7 @@ test("plain text has no spans", () => {
 test("colors from jj log output become spans", () => {
   // Shaped like `jj log --color always`: bold magenta shortest prefix, dim rest, then a plain separator.
   const line = `@  ${ESC}[1m${ESC}[38;5;13mk${ESC}[38;5;8mmsumtwq${ESC}[39m ${ESC}[38;5;3mjdsha@pm.me${ESC}[39m${ESC}[0m`;
-  const text = new StyledTextBuilder()
-    .appendAnsi(`${line}\n│  ${ESC}[1m${ESC}[38;5;10m(empty)${ESC}[0m\n`)
-    .build();
+  const text = new StyledTextBuilder().appendAnsi(`${line}\n│  ${ESC}[1m${ESC}[38;5;10m(empty)${ESC}[0m\n`).build();
 
   assert.deepEqual(text.lines, ["@  kmsumtwq jdsha@pm.me", "│  (empty)"]);
   assert.deepEqual(text.spans, [
@@ -47,9 +45,7 @@ test("colors from jj log output become spans", () => {
 });
 
 test("styles carry across newlines", () => {
-  const text = new StyledTextBuilder()
-    .appendAnsi(`${ESC}[31mab\ncd${ESC}[0m e`)
-    .build();
+  const text = new StyledTextBuilder().appendAnsi(`${ESC}[31mab\ncd${ESC}[0m e`).build();
   assert.deepEqual(text.lines, ["ab", "cd e"]);
   assert.deepEqual(
     text.spans.map((s) => [s.line, s.start, s.end]),
@@ -98,10 +94,6 @@ test("non-color escapes are dropped", () => {
 });
 
 test("separate leaves exactly one blank line", () => {
-  const text = new StyledTextBuilder()
-    .append("a\n\n\n")
-    .separate()
-    .append("b")
-    .build();
+  const text = new StyledTextBuilder().append("a\n\n\n").separate().append("b").build();
   assert.deepEqual(text.lines, ["a", "", "b"]);
 });

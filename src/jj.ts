@@ -11,30 +11,16 @@ export class JjError extends Error {
   }
 }
 
-export function runJj(
-  cwd: string,
-  args: string[],
-  { color = false } = {},
-): Promise<string> {
-  const fullArgs = [
-    "--no-pager",
-    "--color",
-    color ? "always" : "never",
-    ...args,
-  ];
+export function runJj(cwd: string, args: string[], { color = false } = {}): Promise<string> {
+  const fullArgs = ["--no-pager", "--color", color ? "always" : "never", ...args];
   return new Promise((resolve, reject) => {
-    execFile(
-      getConfig().jjPath,
-      fullArgs,
-      { cwd, maxBuffer: 64 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new JjError(stderr.trim() || error.message));
-        } else {
-          resolve(stdout);
-        }
-      },
-    );
+    execFile(getConfig().jjPath, fullArgs, { cwd, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new JjError(stderr.trim() || error.message));
+      } else {
+        resolve(stdout);
+      }
+    });
   });
 }
 
