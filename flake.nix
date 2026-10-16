@@ -148,6 +148,15 @@
     {
       checks = lib.mapAttrs (_: o: o.checks) perSystem;
       devShells = lib.mapAttrs (_: o: o.devShells) perSystem;
+      # Adds the extension to pkgs.vscode-extensions.<publisher>.<name>,
+      # alongside the extensions nixpkgs packages.
+      overlays.default = final: prev: {
+        vscode-extensions = prev.vscode-extensions // {
+          ${manifest.publisher} = prev.vscode-extensions.${manifest.publisher} or { } // {
+            ${manifest.name} = (outputsFor final).packages.majj;
+          };
+        };
+      };
       packages = lib.mapAttrs (_: o: o.packages) perSystem;
     };
 }
