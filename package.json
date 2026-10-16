@@ -111,6 +111,11 @@
         "command": "majj.visit",
         "key": "enter",
         "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "workbench.action.closeActiveEditor",
+        "key": "q",
+        "when": "editorTextFocus && editorLangId == majj"
       }
     ],
     "languages": [
