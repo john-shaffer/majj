@@ -198,6 +198,7 @@ test("visiting a change in the graph shows it", async () => {
   assert.equal(doc.languageId, "majj");
   await waitFor("the change", () => doc.getText().includes("Second change"));
   assert.match(doc.getText(), /^Commit ID: /m);
-  assert.match(doc.getText(), /b\.txt/);
+  assert.match(doc.getText(), /^Changes \(1\)\nnew file   b\.txt\n@@ /m);
+  assert.ok(!doc.getText().includes("diff --git"), doc.getText());
   assert.ok(!doc.getText().includes("\x1b"), "escape codes leaked");
 });

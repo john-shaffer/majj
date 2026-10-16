@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { StyledText, StyledTextBuilder } from "./ansi";
+import { appendShow } from "./diff";
 import { runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
 
@@ -19,8 +20,11 @@ export class ChangeView extends View {
   protected async render(): Promise<StyledText> {
     const out = new StyledTextBuilder();
     try {
-      out.appendAnsi(
-        await runJj(this.root, ["show", this.uri.fragment], { color: true }),
+      appendShow(
+        out,
+        await runJj(this.root, ["show", "--stat", "--git", this.uri.fragment], {
+          color: true,
+        }),
       );
     } catch (e) {
       appendError(out, e);
