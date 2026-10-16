@@ -32,7 +32,7 @@
       },
       {
         "command": "majj.visit",
-        "title": "Visit Change at Point",
+        "title": "Visit Change or File at Point",
         "category": "Majj"
       }
     ],

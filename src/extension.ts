@@ -74,8 +74,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
     if (editor && view instanceof StatusView) {
-      const change = view.changeAt(editor.selection.active.line);
-      if (change) {
+      const line = editor.selection.active.line;
+      const file = view.fileAt(line);
+      const change = view.changeAt(line);
+      if (file) {
+        await vscode.window.showTextDocument(vscode.Uri.file(path.join(view.root, file)));
+      } else if (change) {
         await showView(ChangeView.uriFor(view.root, change), true);
       }
     }

@@ -165,3 +165,14 @@ test("visiting a change in the graph shows it", async () => {
   assert.doesNotMatch(doc.getText(), /files? changed/);
   assert.ok(!doc.getText().includes("\x1b"), "escape codes leaked");
 });
+
+test("visiting a working copy change opens the file", async () => {
+  await vscode.commands.executeCommand("majj.status");
+  await waitFor("the working copy changes", () => statusText().includes("A c.txt"));
+  const editor = vscode.window.activeTextEditor!;
+  const line = editor.document.getText().split("\n").indexOf("A c.txt");
+  editor.selection = new vscode.Selection(line, 0, line, 0);
+  await vscode.commands.executeCommand("majj.visit");
+
+  assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, path.join(repo, "c.txt"));
+});

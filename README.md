@@ -27,7 +27,8 @@ Changes:
 
 Press `g` in the view to refresh it, and `enter` on a change in the graph to
 open `change.majj` with its `jj show` output. Like magit's revision buffer, it
-opens as a preview tab, which the next change you visit replaces.
+opens as a preview tab, which the next change you visit replaces. Press `enter`
+on a file under "Working copy changes" to open the file.
 
 ## Keybindings
 
