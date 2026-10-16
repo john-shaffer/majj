@@ -176,3 +176,17 @@ test("visiting a working copy change opens the file", async () => {
 
   assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, path.join(repo, "c.txt"));
 });
+
+test("poll mode refreshes the change view", async () => {
+  const workingCopy = jj("log", "--no-graph", "-r", "@", "-T", "change_id");
+  const doc = await vscode.workspace.openTextDocument(
+    vscode.Uri.from({ scheme: "majj", path: "change.majj", query: repo, fragment: workingCopy }),
+  );
+  await vscode.window.showTextDocument(doc);
+  await waitFor("the change", () => doc.getText().includes("c.txt"));
+  await setConfig("autoRefresh.pollInterval", 1);
+  await setConfig("autoRefresh.mode", "poll");
+  await sleep(500);
+  fs.writeFileSync(path.join(repo, "polled-change.txt"), "x\n");
+  await waitFor("the polled file", () => doc.getText().includes("polled-change.txt"), 5000);
+});

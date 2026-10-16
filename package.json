@@ -48,11 +48,11 @@
           ],
           "enumDescriptions": [
             "Only refresh when the status command or `majj.refresh` is run.",
-            "Refresh every `majj.autoRefresh.pollInterval` seconds while the status view is visible.",
+            "Refresh every `majj.autoRefresh.pollInterval` seconds while a majj view is visible.",
             "Refresh when jj records a new operation or a file in the workspace changes."
           ],
           "default": "watch",
-          "description": "How the status view keeps itself up to date."
+          "description": "How the status and change views keep themselves up to date."
         },
         "majj.autoRefresh.pollInterval": {
           "type": "number",

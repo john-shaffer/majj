@@ -34,7 +34,7 @@ on a file under "Working copy changes" to open the file.
 
 | Command        | Default  | When                 |
 | -------------- | -------- | -------------------- |
-| `majj.refresh` | `g`      | in the status view   |
+| `majj.refresh` | `g`      | in majj views        |
 | `majj.status`  | `alt+x j` | anywhere            |
 | `majj.visit`   | `enter`  | in the status view   |
 
@@ -61,11 +61,12 @@ jj has no way to subscribe to repository changes (its watchman integration only
 speeds up snapshots), so `watch` mode watches jj's operation heads
 (`.jj/repo/op_heads`), which change after every jj operation, plus the files in
 the workspace. `poll` mode re-runs jj on a timer instead, which helps where file
-watching is unreliable (e.g. network file systems). Either way, refreshes only run
-while the view is visible; a hidden view catches up when it is shown again.
+watching is unreliable (e.g. network file systems). Both apply to the status and
+change views. Either way, refreshes only run while a view is visible; a hidden
+view catches up when it is shown again.
 
-Note that refreshing runs `jj status`, which snapshots the working copy, just as
-running jj in a terminal does.
+Note that refreshing runs `jj status` or `jj show`, which snapshot the working
+copy, just as running jj in a terminal does.
 
 ## Development
 
