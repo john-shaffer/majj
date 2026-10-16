@@ -22,7 +22,7 @@ export class ChangeView extends View {
     try {
       appendShow(
         out,
-        await runJj(this.root, ["show", "--stat", "--git", this.uri.fragment], {
+        await runJj(this.root, ["show", "--git", this.uri.fragment], {
           color: true,
         }),
       );

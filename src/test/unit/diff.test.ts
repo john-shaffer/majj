@@ -13,8 +13,6 @@ const show = (diff: string) =>
 
     Describe it
 
-x | 1 ${fg(2, "+")}
-1 file changed, 1 insertion(+), 0 deletions(-)
 ${diff}`);
 
 function appendShowText(ansi: string) {
@@ -37,11 +35,8 @@ ${added("b")}
     "",
     "    Describe it",
     "",
-    "x | 1 +",
-    "1 file changed, 1 insertion(+), 0 deletions(-)",
-    "",
-    "Changes (1)",
-    "modified   x",
+    "Changes    1 file, 1 insertion(+), 0 deletions(-)",
+    "modified   x | 1 +",
     "@@ -1,1 +1,2 @@",
     " a",
     "+b",
@@ -86,17 +81,17 @@ index 0..1
 +x
 \\ No newline at end of file
 `);
-  assert.deepEqual(text.lines.slice(text.lines.indexOf("Changes (4)")), [
-    "Changes (4)",
-    "modified   bin",
+  assert.deepEqual(text.lines.slice(text.lines.findIndex((l) => l.startsWith("Changes"))), [
+    "Changes    4 files, 1 insertion(+), 1 deletion(-)",
+    "modified   bin        | (binary)",
     "old mode 100644",
     "new mode 100755",
     "Binary files a/bin and b/bin differ",
-    "deleted    gone",
+    "deleted    gone       | 1 -",
     "@@ -1,1 +0,0 @@",
     "-x",
-    "renamed    mv1 -> mv2",
-    "new file   sp ace",
+    "renamed    mv1 -> mv2 | 0",
+    "new file   sp ace     | 1 +",
     "@@ -0,0 +1,1 @@",
     "+x",
     "\\ No newline at end of file",
@@ -109,13 +104,33 @@ test("paths are read without the a/ and b/ prefixes when jj omits them", () => {
 -a
 +b
 `);
-  assert.ok(text.lines.includes("modified   x"), text.lines.join("\n"));
+  assert.ok(text.lines.includes("modified   x | 2 +-"), text.lines.join("\n"));
+});
+
+test("a description that quotes a diff is not mistaken for one", () => {
+  const text = appendShowText(`Commit ID: abc
+
+    Fix a parser
+    diff --git a/x b/x
+`);
+  assert.deepEqual(text.lines, ["Commit ID: abc", "", "    Fix a parser", "    diff --git a/x b/x"]);
 });
 
 test("an empty change has no Changes section", () => {
   const text = appendShowText(`Commit ID: abc
 
-0 files changed, 0 insertions(+), 0 deletions(-)
+    Describe it
 `);
-  assert.deepEqual(text.lines, ["Commit ID: abc", "", "0 files changed, 0 insertions(+), 0 deletions(-)"]);
+  assert.deepEqual(text.lines, ["Commit ID: abc", "", "    Describe it"]);
+});
+
+test("long bars are scaled down, keeping counts aligned", () => {
+  const plus = (n: number) => Array.from({ length: n }, () => "+x\n").join("");
+  const text = show(`diff --git a/big b/big
+@@ -0,0 +1,80 @@
+${plus(80)}diff --git a/small b/small
+@@ -1,0 +1,2 @@
+${plus(2)}`);
+  const files = text.lines.filter((l) => / \| /.test(l));
+  assert.deepEqual(files, [`modified   big   | 80 ${"+".repeat(40)}`, "modified   small |  2 +"]);
 });
