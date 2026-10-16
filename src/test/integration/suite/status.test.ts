@@ -190,3 +190,34 @@ test("poll mode refreshes the change view", async () => {
   fs.writeFileSync(path.join(repo, "polled-change.txt"), "x\n");
   await waitFor("the polled file", () => doc.getText().includes("polled-change.txt"), 5000);
 });
+
+test("views open in the editor group that isn't active", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+  const file = await vscode.workspace.openTextDocument(path.join(repo, "c.txt"));
+  await vscode.window.showTextDocument(file, vscode.ViewColumn.One);
+
+  // With one group, the editor splits.
+  await vscode.commands.executeCommand("majj.status");
+  assert.equal(vscode.window.activeTextEditor?.viewColumn, vscode.ViewColumn.Two);
+  await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+
+  await vscode.window.showTextDocument(file, vscode.ViewColumn.Two);
+
+  await vscode.commands.executeCommand("majj.status");
+  assert.equal(vscode.window.activeTextEditor?.document.uri.scheme, "majj");
+  assert.equal(vscode.window.activeTextEditor?.viewColumn, vscode.ViewColumn.One);
+
+  await waitFor("the graph", () => statusText().includes("Second change"));
+  const editor = vscode.window.activeTextEditor!;
+  const line = editor.document.getText().split("\n").indexOf("A c.txt");
+  editor.selection = new vscode.Selection(line, 0, line, 0);
+  await vscode.commands.executeCommand("majj.visit");
+  assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, path.join(repo, "c.txt"));
+  assert.equal(vscode.window.activeTextEditor?.viewColumn, vscode.ViewColumn.Two);
+
+  // An open status view is revealed where it is rather than opened again.
+  await vscode.commands.executeCommand("majj.status");
+  assert.equal(vscode.window.activeTextEditor?.document.uri.scheme, "majj");
+  assert.equal(vscode.window.activeTextEditor?.viewColumn, vscode.ViewColumn.One);
+});

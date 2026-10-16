@@ -46,12 +46,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     },
   };
 
-  const showView = async (uri: vscode.Uri, preview: boolean) => {
+  const showView = async (uri: vscode.Uri, preview: boolean, viewColumn = otherColumn()) => {
     let doc = await vscode.workspace.openTextDocument(uri);
     if (doc.languageId !== "majj") {
       doc = await vscode.languages.setTextDocumentLanguage(doc, "majj");
     }
-    await vscode.window.showTextDocument(doc, { preview });
+    await vscode.window.showTextDocument(doc, { preview, viewColumn });
   };
 
   const showStatus = async () => {
@@ -61,7 +61,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
     const uri = StatusView.uriFor(root);
     const existing = viewFor(uri);
-    await showView(uri, false);
+    await showView(uri, false, columnOf(uri) ?? otherColumn());
     // Like magit, invoking status on an already open view refreshes it.
     if (existing?.loaded) {
       await existing.refresh();
@@ -78,7 +78,9 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       const file = view.fileAt(line);
       const change = view.changeAt(line);
       if (file) {
-        await vscode.window.showTextDocument(vscode.Uri.file(path.join(view.root, file)));
+        await vscode.window.showTextDocument(vscode.Uri.file(path.join(view.root, file)), {
+          viewColumn: otherColumn(),
+        });
       } else if (change) {
         await showView(ChangeView.uriFor(view.root, change), true);
       }
@@ -130,6 +132,23 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   );
 
   return { getStatus: (root) => viewFor(StatusView.uriFor(root))?.content };
+}
+
+/**
+ * Open views and files in an editor group other than the active one: the first
+ * group, or the second if the first is active. With only one group, this splits
+ * the editor.
+ */
+function otherColumn(): vscode.ViewColumn {
+  const active = vscode.window.tabGroups.activeTabGroup.viewColumn;
+  return active > vscode.ViewColumn.One ? vscode.ViewColumn.One : vscode.ViewColumn.Two;
+}
+
+/** The editor group with a tab for uri, if any. */
+function columnOf(uri: vscode.Uri): vscode.ViewColumn | undefined {
+  return vscode.window.tabGroups.all.find((group) =>
+    group.tabs.some((tab) => tab.input instanceof vscode.TabInputText && tab.input.uri.toString() === uri.toString()),
+  )?.viewColumn;
 }
 
 /**

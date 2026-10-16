@@ -30,6 +30,9 @@ open `change.majj` with its `jj show` output. Like magit's revision buffer, it
 opens as a preview tab, which the next change you visit replaces. Press `enter`
 on a file under "Working copy changes" to open the file.
 
+majj opens these in an editor group other than the active one: the first group,
+or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.
+
 ## Keybindings
 
 | Command        | Default  | When                 |
