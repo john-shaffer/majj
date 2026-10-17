@@ -44,6 +44,52 @@ export async function edit(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["edit", revision]);
 }
 
+const REBASE_SOURCE_FLAGS = new Set(["-b", "--branch", "-r", "--revision", "-s", "--source"]);
+
+/**
+ * Builds `jj rebase` arguments for rebasing `source` according to `input`.
+ * Plain revset input defaults to `-s <source> -d <input>`; flag input such as
+ * `-r -d main`, `-A main`, or `-r x -d y` inserts `source` when no source
+ * revision was given.
+ */
+export function rebaseArgs(source: string, input: string): string[] {
+  const trimmed = input.trim();
+  const tokens = (trimmed.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+/g) ?? []).map((t) =>
+    (t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'")) ? t.slice(1, -1) : t,
+  );
+  if (tokens.length === 0) {
+    return [];
+  }
+  if (!tokens.some((t) => t.startsWith("-"))) {
+    return ["rebase", "-s", source, "-d", trimmed];
+  }
+  const out = ["rebase"];
+  let hasSource = false;
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    out.push(tok);
+    if (REBASE_SOURCE_FLAGS.has(tok)) {
+      hasSource = true;
+      const next = tokens[i + 1];
+      if (!next || next.startsWith("-")) {
+        out.push(source);
+      }
+    }
+  }
+  if (!hasSource) {
+    out.splice(1, 0, "-s", source);
+  }
+  return out;
+}
+
+/** Rebases `source` according to `input` (`jj rebase`). */
+export async function rebase(cwd: string, source: string, input: string): Promise<void> {
+  const args = rebaseArgs(source, input);
+  if (args.length > 0) {
+    await runJj(cwd, args);
+  }
+}
+
 /** Restores the given workspace-relative paths in the working copy from its parent(s). */
 export async function restore(cwd: string, paths: string[]): Promise<void> {
   await runJj(cwd, ["restore", "--", ...paths.map(fileset)]);

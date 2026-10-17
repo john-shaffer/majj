@@ -36,6 +36,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.rebase",
+        "title": "Rebase Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.refresh",
         "title": "Refresh Status",
         "category": "Majj"
@@ -154,6 +159,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.rebase",
+        "key": "r",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.refresh",
         "key": "g",
         "when": "editorTextFocus && editorLangId == majj"
@@ -216,6 +226,10 @@
         },
         {
           "command": "majj.help",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.rebase",
           "when": "editorLangId == majj"
         },
         {

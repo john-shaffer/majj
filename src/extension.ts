@@ -6,7 +6,7 @@ import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
-import { edit, findRoot, restore, SelectedChanges, split, squash } from "./jj";
+import { edit, findRoot, rebase, restore, SelectedChanges, split, squash } from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
@@ -223,6 +223,25 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const rebaseChange = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    const source = view.changeAt(editor.selection.active.line) ?? "@";
+    const dest = await promptInput(`Rebase ${source} onto`);
+    if (!dest) {
+      return;
+    }
+    try {
+      await rebase(view.root, source, dest);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   const showHelp = async () => {
     const active = vscode.window.activeTextEditor?.document.uri;
     const root = active?.scheme === SCHEME ? active.query : ((await resolveRoot()) ?? "");
@@ -266,6 +285,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.discard", discard),
     vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.help", showHelp),
+    vscode.commands.registerCommand("majj.rebase", rebaseChange),
     vscode.commands.registerCommand("majj.refresh", refresh),
     vscode.commands.registerCommand("majj.split", splitSelected),
     vscode.commands.registerCommand("majj.squash", squashSelected),
@@ -348,6 +368,35 @@ function confirm(prompt: string): Promise<boolean> {
       hideSub.dispose();
       inputBox.dispose();
       finish(false);
+    });
+
+    inputBox.show();
+  });
+}
+
+function promptInput(prompt: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const inputBox = vscode.window.createInputBox();
+    inputBox.prompt = prompt;
+
+    const finish = (value: string | undefined) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      activeConfirmation = undefined;
+      inputBox.hide();
+      resolve(value?.trim() || undefined);
+    };
+
+    activeConfirmation = { prompt, answer: finish };
+    const acceptSub = inputBox.onDidAccept(() => finish(inputBox.value));
+    const hideSub = inputBox.onDidHide(() => {
+      acceptSub.dispose();
+      hideSub.dispose();
+      inputBox.dispose();
+      finish(undefined);
     });
 
     inputBox.show();

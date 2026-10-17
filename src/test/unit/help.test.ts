@@ -19,6 +19,7 @@ test("default keybindings render the essential commands section", () => {
     "  RET      visit thing at point",
     "  e        edit change at point",
     "  k        discard at point",
+    "  r        rebase change at point",
     "  s        split selected changes",
     "  S        squash changes",
     "  q        exit / close majj view",
@@ -34,6 +35,7 @@ test("default keybindings render the essential commands section", () => {
     { line: 7, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 8, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 9, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 10, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
   ]);
 });
 
@@ -56,6 +58,7 @@ test("user keybindings override defaults and widen the key column when needed", 
     "  ctrl+enter  visit thing at point",
     "  e           edit change at point",
     "  k           discard at point",
+    "  r           rebase change at point",
     "  s           split selected changes",
     "  S           squash changes",
     "  q           exit / close majj view",

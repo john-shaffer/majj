@@ -28,7 +28,8 @@ Changes:
 
 Press `g` in the view to refresh it, `?` to open `help.majj`, `q` to close a
 view, `enter` on a change in the graph to open `change.majj` with its
-`jj show` output, or `e` on a change or commit to run `jj edit` on it. Like magit's revision buffer, `change.majj` and `help.majj`
+`jj show` output, `e` on a change or commit to run `jj edit` on it, or `r` to
+run `jj rebase` on it. Like magit's revision buffer, `change.majj` and `help.majj`
 open as preview tabs, which the next one you open replaces. Press `enter` on a
 file under "Working copy changes" to open the file, `tab` on a file or diff
 chunk to show or hide it (also in `change.majj`), `space` on a file, chunk, or
@@ -46,6 +47,7 @@ or the second if the first is active, splitting the editor if there's only one. 
 | `majj.discard`                       | `k`       | in the status view           |
 | `majj.edit`                          | `e`       | in the status view           |
 | `majj.help`                          | `?`       | in majj views                |
+| `majj.rebase`                        | `r`       | in the status view           |
 | `majj.refresh`                       | `g`       | in majj views                |
 | `majj.split`                         | `s`       | in the status view           |
 | `majj.squash`                        | `S`       | in the status view           |

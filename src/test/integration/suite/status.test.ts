@@ -465,6 +465,59 @@ test("selecting working copy changes with space then splitting with s and squash
   }
 });
 
+test("rebasing a change in status.majj prompts for destination and runs jj rebase", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("Sibling change in graph", () => statusText().includes("Sibling change"));
+
+    const siblingId = jj(
+      "log",
+      "--no-graph",
+      "-r",
+      'description(substring:"Sibling change")',
+      "-T",
+      "change_id",
+    ).trim();
+    const editor = vscode.window.activeTextEditor!;
+    const lines = editor.document.getText().split("\n");
+    const siblingLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Sibling change"));
+    editor.selection = new vscode.Selection(siblingLine, 0, siblingLine, 0);
+
+    const rebasing = vscode.commands.executeCommand("majj.rebase");
+    await waitFor("rebase prompt", () => api.confirmPrompt() !== undefined);
+    assert.equal(api.confirmPrompt(), `Rebase ${siblingId} onto`);
+    api.answerConfirmation("feature");
+    await rebasing;
+
+    assert.equal(
+      jj("log", "--no-graph", "-r", 'description(substring:"Sibling change")-', "-T", "description").trim(),
+      "First change",
+    );
+
+    // Flag-style input fills in the source revision when omitted.
+    const newSiblingLine = editor.document
+      .getText()
+      .split("\n")
+      .findIndex((l, i, arr) => i > arr.indexOf("Changes:") && l.includes("Sibling change"));
+    editor.selection = new vscode.Selection(newSiblingLine, 0, newSiblingLine, 0);
+    const rebasingFlags = vscode.commands.executeCommand("majj.rebase");
+    await waitFor("rebase prompt", () => api.confirmPrompt() !== undefined);
+    api.answerConfirmation("-r -d root()");
+    await rebasingFlags;
+
+    assert.equal(
+      jj("log", "--no-graph", "-r", 'description(substring:"Sibling change")-', "-T", "description").trim(),
+      "",
+    );
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.refresh");
+  }
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -483,6 +536,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  RET      visit thing at point",
       "  e        edit change at point",
       "  k        discard at point",
+      "  r        rebase change at point",
       "  s        split selected changes",
       "  S        squash changes",
       "  q        exit / close majj view",
