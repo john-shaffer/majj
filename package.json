@@ -41,6 +41,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.toggleFold",
+        "title": "Toggle Section at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.visit",
         "title": "Visit Change or File at Point",
         "category": "Majj"
@@ -133,6 +138,11 @@
         "key": "alt+x j"
       },
       {
+        "command": "majj.toggleFold",
+        "key": "tab",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.visit",
         "key": "enter",
         "when": "editorTextFocus && editorLangId == majj"
@@ -166,6 +176,10 @@
         },
         {
           "command": "majj.refresh",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.toggleFold",
           "when": "editorLangId == majj"
         },
         {

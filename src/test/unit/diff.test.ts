@@ -134,3 +134,36 @@ ${plus(2)}`);
   const files = text.lines.filter((l) => / \| /.test(l));
   assert.deepEqual(files, [`modified   big   | 80 ${"+".repeat(40)}`, "modified   small |  2 +"]);
 });
+
+test("collapsed files keep their summary line but hide their diff lines", () => {
+  const ansi = `Commit ID: abc
+
+    Describe it
+
+diff --git a/first b/first
+@@ -1,1 +1,2 @@
+ a
++b
+diff --git a/second b/second
+@@ -1,1 +1,2 @@
+ c
++d
+`;
+  const out = new StyledTextBuilder();
+  const fileLines = appendShow(out, ansi, new Set(["first"]));
+  assert.deepEqual(out.build().lines, [
+    "Commit ID: abc",
+    "",
+    "    Describe it",
+    "",
+    "Changes    2 files, 2 insertions(+), 0 deletions(-)",
+    "modified   first  | 1 +",
+    "modified   second | 1 +",
+    "@@ -1,1 +1,2 @@",
+    " c",
+    "+d",
+  ]);
+  assert.deepEqual(fileLines.get(5), { path: "first", headerLine: 5 });
+  assert.deepEqual(fileLines.get(6), { path: "second", headerLine: 6 });
+  assert.deepEqual(fileLines.get(9), { path: "second", headerLine: 6 });
+});

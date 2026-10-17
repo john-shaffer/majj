@@ -252,6 +252,49 @@ test("discarding a working copy file asks for y/n confirmation and restores it",
   assert.ok(!fs.existsSync(path.join(repo, "discard-me.txt")));
 });
 
+test("tab shows and hides changed files in the working copy and in change.majj", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  await vscode.commands.executeCommand("majj.status");
+  await waitFor("the working copy file", () => statusText().includes("A c.txt"));
+  assert.ok(!statusText().includes("@@ -0,0 +1,1 @@"));
+
+  // Expand c.txt in status.majj.
+  const statusEditor = vscode.window.activeTextEditor!;
+  const fileLine = statusEditor.document.getText().split("\n").indexOf("A c.txt");
+  statusEditor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("c.txt diff to show", () => statusText().includes("A c.txt\n@@ -0,0 +1,1 @@\n+c"));
+
+  // Collapse c.txt from inside its expanded diff; the cursor returns to the file line.
+  statusEditor.selection = new vscode.Selection(fileLine + 2, 0, fileLine + 2, 0);
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("c.txt diff to hide", () => !statusText().includes("@@ -0,0 +1,1 @@"));
+  assert.equal(statusEditor.selection.active.line, fileLine);
+
+  // Visit a change in the graph and toggle its file diff in change.majj.
+  const lines = statusEditor.document.getText().split("\n");
+  const changeLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"));
+  statusEditor.selection = new vscode.Selection(changeLine, 0, changeLine, 0);
+  await vscode.commands.executeCommand("majj.visit");
+
+  const changeEditor = vscode.window.activeTextEditor!;
+  const changeDoc = changeEditor.document;
+  assert.equal(changeDoc.uri.path, "change.majj");
+  await waitFor("change diff to load", () => changeDoc.getText().includes("+b"));
+
+  const bLine = changeDoc
+    .getText()
+    .split("\n")
+    .findIndex((l) => l.startsWith("new file   b.txt"));
+  changeEditor.selection = new vscode.Selection(bLine, 0, bLine, 0);
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("b.txt diff to hide", () => !changeDoc.getText().includes("@@ "));
+  assert.ok(changeDoc.getText().includes("new file   b.txt | 1 +"));
+
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("b.txt diff to show again", () => changeDoc.getText().includes("+b"));
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -265,6 +308,7 @@ test("help command opens help.majj with the essential commands", async () => {
     [
       "Essential commands",
       "  g        refresh current buffer",
+      "  TAB      toggle section at point",
       "  RET      visit thing at point",
       "  k        discard at point",
       "  q        exit / close majj view",

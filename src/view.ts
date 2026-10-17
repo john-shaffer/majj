@@ -84,6 +84,20 @@ export abstract class View implements vscode.Disposable {
     return vscode.window.visibleTextEditors.some((e) => e.document.uri.toString() === this.uri.toString());
   }
 
+  /**
+   * Toggles the foldable section at `line`, if any, returning the header line
+   * of the toggled section so the cursor can stay on it when collapsing.
+   */
+  toggleFold(_line: number): number | undefined {
+    return undefined;
+  }
+
+  protected update(content: StyledText): StyledText {
+    this.content = content;
+    this.onDidUpdate(this);
+    return content;
+  }
+
   protected abstract render(): Promise<StyledText>;
 
   dispose() {

@@ -29,22 +29,24 @@ Press `g` in the view to refresh it, `?` to open `help.majj`, `q` to close a
 view, and `enter` on a change in the graph to open `change.majj` with its
 `jj show` output. Like magit's revision buffer, `change.majj` and `help.majj`
 open as preview tabs, which the next one you open replaces. Press `enter` on a
-file under "Working copy changes" to open the file, or `k` to discard its
-changes after a `y`/`n` confirmation.
+file under "Working copy changes" to open the file, `tab` to show or hide its
+diff (also in `change.majj`), or `k` to discard its changes after a `y`/`n`
+confirmation.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.
 
 ## Keybindings
 
-| Command                              | Default   | When               |
-| ------------------------------------ | --------- | ------------------ |
-| `majj.discard`                       | `k`       | in the status view |
-| `majj.help`                          | `?`       | in majj views      |
-| `majj.refresh`                       | `g`       | in majj views      |
-| `majj.status`                        | `alt+x j` | anywhere           |
-| `majj.visit`                         | `enter`   | in the status view |
-| `workbench.action.closeActiveEditor` | `q`       | in majj views      |
+| Command                              | Default   | When                         |
+| ------------------------------------ | --------- | ---------------------------- |
+| `majj.discard`                       | `k`       | in the status view           |
+| `majj.help`                          | `?`       | in majj views                |
+| `majj.refresh`                       | `g`       | in majj views                |
+| `majj.status`                        | `alt+x j` | anywhere                     |
+| `majj.toggleFold`                    | `tab`     | in status and change views   |
+| `majj.visit`                         | `enter`   | in the status view           |
+| `workbench.action.closeActiveEditor` | `q`       | in majj views                |
 
 Change them in **Preferences: Open Keyboard Shortcuts** (search for "majj"), or in
 `keybindings.json`:

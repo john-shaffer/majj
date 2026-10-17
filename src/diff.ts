@@ -19,9 +19,10 @@ const DIFF_GIT = /^diff --git /;
 // Extended header lines that the file's label or path stands in for.
 const HIDDEN = /^(index |--- |\+\+\+ |(new|deleted) file mode |(rename|copy) (from|to) |(dis)?similarity index )/;
 
-interface FileDiff {
+export interface FileDiff {
   label: string;
   path: string;
+  from?: string;
   binary: boolean;
   insertions: number;
   deletions: number;
@@ -29,7 +30,19 @@ interface FileDiff {
   lines: string[];
 }
 
-export function appendShow(out: StyledTextBuilder, ansi: string) {
+export interface FileSpan {
+  path: string;
+  headerLine: number;
+}
+
+const displayPath = (file: FileDiff) => (file.from ? `${file.from} -> ${file.path}` : file.path);
+
+export function appendShow(
+  out: StyledTextBuilder,
+  ansi: string,
+  collapsedFiles: ReadonlySet<string> = new Set(),
+): Map<number, FileSpan> {
+  const fileSpans = new Map<number, FileSpan>();
   const lines = ansi.split("\n");
   let diffStart = lines.findIndex((l) => DIFF_GIT.test(stripAnsi(l)));
   if (diffStart < 0) {
@@ -38,7 +51,7 @@ export function appendShow(out: StyledTextBuilder, ansi: string) {
   out.appendAnsi(lines.slice(0, diffStart).join("\n"));
   const files = parseFiles(lines.slice(diffStart));
   if (files.length === 0) {
-    return;
+    return fileSpans;
   }
   const sum = (f: (file: FileDiff) => number) => files.reduce((n, file) => n + f(file), 0);
   out
@@ -58,11 +71,12 @@ export function appendShow(out: StyledTextBuilder, ansi: string) {
       HEADER,
     )
     .newline();
-  const pathWidth = Math.max(...files.map((f) => f.path.length));
+  const pathWidth = Math.max(...files.map((f) => displayPath(f).length));
   const countWidth = Math.max(...files.map((f) => String(f.insertions + f.deletions).length));
   const scale = Math.min(1, MAX_BAR / Math.max(...files.map((f) => f.insertions + f.deletions)));
   for (const file of files) {
-    out.append(`${file.label.padEnd(LABEL_WIDTH)}${file.path.padEnd(pathWidth)}`, FILE).append(" | ");
+    const headerLine = out.line;
+    out.append(`${file.label.padEnd(LABEL_WIDTH)}${displayPath(file).padEnd(pathWidth)}`, FILE).append(" | ");
     if (file.binary) {
       out.append("(binary)");
     } else {
@@ -73,11 +87,21 @@ export function appendShow(out: StyledTextBuilder, ansi: string) {
         .append("-".repeat(barLength(file.deletions, scale)), REMOVED);
     }
     out.newline();
-    for (const line of file.lines) {
-      // jj underlines the changed tokens, which on a wholly added or removed
-      // line is the whole line.
-      out.appendAnsi(line, ({ underline, ...style }) => style).newline();
+    if (!collapsedFiles.has(file.path)) {
+      appendFileDiff(out, file);
     }
+    for (let l = headerLine; l < out.line; l++) {
+      fileSpans.set(l, { path: file.path, headerLine });
+    }
+  }
+  return fileSpans;
+}
+
+export function appendFileDiff(out: StyledTextBuilder, file: FileDiff) {
+  for (const line of file.lines) {
+    // jj underlines the changed tokens, which on a wholly added or removed
+    // line is the whole line.
+    out.appendAnsi(line, ({ underline, ...style }) => style).newline();
   }
 }
 
@@ -86,7 +110,7 @@ const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 /** Scaled like git's stat: any change gets at least one character. */
 const barLength = (n: number, scale: number) => (n > 0 ? Math.max(1, Math.round(n * scale)) : 0);
 
-function parseFiles(lines: string[]): FileDiff[] {
+export function parseFiles(lines: string[]): FileDiff[] {
   const files: FileDiff[] = [];
   let file: FileDiff | undefined;
   let from: string | undefined;
@@ -123,7 +147,8 @@ function parseFiles(lines: string[]): FileDiff[] {
       from = plain.replace(/^\w+ from /, "");
     } else if (/^(rename|copy) to /.test(plain)) {
       file.label = plain.startsWith("rename") ? "renamed" : "copied";
-      file.path = `${from} -> ${plain.replace(/^\w+ to /, "")}`;
+      file.from = from;
+      file.path = plain.replace(/^\w+ to /, "");
     } else if (!HIDDEN.test(plain)) {
       file.binary ||= plain.startsWith("Binary files ");
       file.lines.push(line);

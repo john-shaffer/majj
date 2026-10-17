@@ -19,6 +19,7 @@ interface HelpEntry {
 
 const ESSENTIAL: HelpEntry[] = [
   { command: "majj.refresh", description: "refresh current buffer" },
+  { command: "majj.toggleFold", description: "toggle section at point" },
   { command: "majj.visit", description: "visit thing at point" },
   { command: "majj.discard", description: "discard at point" },
   { command: "workbench.action.closeActiveEditor", description: "exit / close majj view" },

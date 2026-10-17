@@ -132,6 +132,18 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     await (uri && viewFor(uri))?.refresh();
   };
 
+  const toggleFold = () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (editor && view) {
+      const line = editor.selection.active.line;
+      const headerLine = view.toggleFold(line);
+      if (headerLine !== undefined && line > headerLine) {
+        editor.selection = new vscode.Selection(headerLine, 0, headerLine, 0);
+      }
+    }
+  };
+
   context.subscriptions.push(
     decorator,
     changed,
@@ -139,6 +151,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.discard", discard),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.status", showStatus),
+    vscode.commands.registerCommand("majj.toggleFold", toggleFold),
     vscode.commands.registerCommand("majj.visit", visit),
     vscode.commands.registerCommand("majj.refresh", refresh),
     vscode.workspace.onDidChangeTextDocument((e) => {
