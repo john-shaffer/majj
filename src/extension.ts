@@ -1,8 +1,10 @@
+import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
 import { StyledText } from "./ansi";
 import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
+import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
 import { findRoot, restore } from "./jj";
 import { StatusView } from "./statusView";
@@ -103,15 +105,44 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   const discard = async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
-    if (editor && view instanceof StatusView) {
-      const file = view.fileAt(editor.selection.active.line);
-      if (file && (await confirm(`Discard changes to ${file.path}?`))) {
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    const { start, end, active, isEmpty } = editor.selection;
+    const file = isEmpty ? view.fileAt(active.line) : undefined;
+    if (file) {
+      if (await confirm(`Discard changes to ${file.path}?`)) {
         try {
           await restore(view.root, file.restorePaths);
           await view.refresh();
         } catch (e) {
           void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
         }
+      }
+      return;
+    }
+    const byFile = view.discardedLinesIn(start.line, end.line);
+    if (byFile.size === 0) {
+      return;
+    }
+    const names = [...byFile.keys()].map((f) => f.path).join(", ");
+    if (await confirm(`Discard selected changes to ${names}?`)) {
+      try {
+        for (const [fileDiff, chunks] of byFile) {
+          const fullPath = path.join(view.root, fileDiff.path);
+          let current = "";
+          try {
+            current = await fs.readFile(fullPath, "utf8");
+          } catch {
+            // File was deleted in the working copy.
+          }
+          const updated = discardLines(current, fileDiff, chunks);
+          await fs.mkdir(path.dirname(fullPath), { recursive: true });
+          await fs.writeFile(fullPath, updated);
+        }
+        await view.refresh();
+      } catch (e) {
+        void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
       }
     }
   };

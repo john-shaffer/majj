@@ -256,6 +256,49 @@ test("discarding a working copy file asks for y/n confirmation and restores it",
   assert.ok(!fs.existsSync(path.join(repo, "discard-me.txt")));
 });
 
+test("discarding individual changed lines and selections of changed lines reverts only those lines", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
+  const filePath = path.join(repo, "b.txt");
+  fs.writeFileSync(filePath, "b1\nb2\nb3\n");
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("M b.txt to appear", () => statusText().includes("M b.txt"));
+
+    const editor = vscode.window.activeTextEditor!;
+    const fileLine = editor.document.getText().split("\n").indexOf("M b.txt");
+    editor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("b.txt diff to expand", () => statusText().includes("+b1\n+b2\n+b3"));
+
+    // Discard a single changed line (+b2).
+    const b2Line = editor.document.getText().split("\n").indexOf("+b2");
+    editor.selection = new vscode.Selection(b2Line, 0, b2Line, 0);
+    const discardOne = vscode.commands.executeCommand("majj.discard");
+    await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
+    api.answerConfirmation("y");
+    await discardOne;
+    await waitFor("b2 to be removed", () => !statusText().includes("+b2") && statusText().includes("+b1"));
+    assert.equal(fs.readFileSync(filePath, "utf8"), "b1\nb3\n");
+
+    // Discard a selection spanning -b and +b1, restoring b and removing b1 while keeping b3.
+    const lines = editor.document.getText().split("\n");
+    const minusB = lines.indexOf("-b");
+    const plusB1 = lines.indexOf("+b1");
+    editor.selection = new vscode.Selection(minusB, 0, plusB1, 0);
+    const discardSelection = vscode.commands.executeCommand("majj.discard");
+    await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
+    api.answerConfirmation("y");
+    await discardSelection;
+    await waitFor("b restored and b1 removed", () => !statusText().includes("+b1") && statusText().includes("+b3"));
+    assert.equal(fs.readFileSync(filePath, "utf8"), "b\nb3\n");
+  } finally {
+    jj("restore", "b.txt");
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("b.txt restored", () => !statusText().includes("b.txt"));
+  }
+});
+
 test("tab shows and hides changed files and chunks in the working copy and in change.majj", async () => {
   await setConfig("autoRefresh.mode", "off");
   await vscode.commands.executeCommand("majj.status");

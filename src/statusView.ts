@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { stripAnsi, Style, StyledText, StyledTextBuilder } from "./ansi";
 import { getConfig } from "./config";
-import { appendFileDiff, FoldSpan, parseFiles } from "./diff";
+import { appendFileDiff, DiffLine, FileDiff, FoldSpan, parseFiles } from "./diff";
 import { configGet, JjError, runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
 import { WorkingCopyFile, workingCopyFiles } from "./workingCopy";
@@ -24,6 +24,8 @@ export interface Status {
   files: Map<number, WorkingCopyFile>;
   /** The foldable file or chunk section on each line of the working copy changes, by line index. */
   foldSpans: Map<number, FoldSpan>;
+  /** The rendered diff chunk or line at each expanded working copy diff line, by line index. */
+  diffLines: Map<number, DiffLine>;
 }
 
 interface StatusData {
@@ -42,6 +44,7 @@ export function formatStatus(
   const changes = new Map<number, string>();
   const files = new Map<number, WorkingCopyFile>();
   const foldSpans = new Map<number, FoldSpan>();
+  const diffLines = new Map<number, DiffLine>();
   const rawFiles = workingCopyFiles(stripAnsi(data.status));
   const diffs = new Map(parseFiles(data.diff.split("\n")).map((f) => [f.path, f]));
 
@@ -65,7 +68,7 @@ export function formatStatus(
       foldSpans.set(headerLine, { kind: "file", key: wcFile.path, headerLine });
       const fileDiff = diffs.get(wcFile.path);
       if (expandedFiles.has(wcFile.path) && fileDiff) {
-        appendFileDiff(out, fileDiff, headerLine, foldSpans, collapsedChunks);
+        appendFileDiff(out, fileDiff, headerLine, foldSpans, collapsedChunks, diffLines);
       }
     }
   }
@@ -84,7 +87,7 @@ export function formatStatus(
     }
     out.appendAnsi(mark ? line.replace(mark[0], "") : line).newline();
   }
-  return { text: out.build(), changes, files, foldSpans };
+  return { text: out.build(), changes, files, foldSpans, diffLines };
 }
 
 async function fetchStatusData(root: string): Promise<StatusData> {
@@ -136,6 +139,7 @@ function errorStatus(root: string, e: unknown): Status {
     changes: new Map(),
     files: new Map(),
     foldSpans: new Map(),
+    diffLines: new Map(),
   };
 }
 
@@ -170,6 +174,7 @@ export class StatusView extends View {
   private changes = new Map<number, string>();
   private files = new Map<number, WorkingCopyFile>();
   private foldSpans = new Map<number, FoldSpan>();
+  private diffLines = new Map<number, DiffLine>();
 
   /** The ID of the change shown on a line of the change graph. */
   changeAt(line: number): string | undefined {
@@ -179,6 +184,46 @@ export class StatusView extends View {
   /** The working copy file shown on a line, relative to the root. */
   fileAt(line: number): WorkingCopyFile | undefined {
     return this.files.get(line);
+  }
+
+  /**
+   * The changed diff lines (`+` or `-`) within `[startLine, endLine]`, grouped
+   * by file and chunk index. A single cursor on a `@@ ... @@` chunk header
+   * selects all changed lines in that chunk.
+   */
+  discardedLinesIn(startLine: number, endLine: number): Map<FileDiff, Map<number, Set<number>>> {
+    const result = new Map<FileDiff, Map<number, Set<number>>>();
+    const add = (file: FileDiff, chunkIndex: number, lineIndex: number) => {
+      let chunks = result.get(file);
+      if (!chunks) {
+        result.set(file, (chunks = new Map()));
+      }
+      let lines = chunks.get(chunkIndex);
+      if (!lines) {
+        chunks.set(chunkIndex, (lines = new Set()));
+      }
+      lines.add(lineIndex);
+    };
+    if (startLine === endLine) {
+      const dl = this.diffLines.get(startLine);
+      if (dl && dl.lineIndex === undefined) {
+        const chunk = dl.file.chunks[dl.chunkIndex];
+        chunk?.lines.forEach((line, j) => {
+          const plain = stripAnsi(line);
+          if (plain.startsWith("+") || plain.startsWith("-")) {
+            add(dl.file, dl.chunkIndex, j);
+          }
+        });
+        return result;
+      }
+    }
+    for (let l = startLine; l <= endLine; l++) {
+      const dl = this.diffLines.get(l);
+      if (dl?.changed && dl.lineIndex !== undefined) {
+        add(dl.file, dl.chunkIndex, dl.lineIndex);
+      }
+    }
+    return result;
   }
 
   override toggleFold(line: number): number | undefined {
@@ -196,10 +241,11 @@ export class StatusView extends View {
     return span.headerLine;
   }
 
-  private applyStatus({ text, changes, files, foldSpans }: Status): StyledText {
+  private applyStatus({ text, changes, files, foldSpans, diffLines }: Status): StyledText {
     this.changes = changes;
     this.files = files;
     this.foldSpans = foldSpans;
+    this.diffLines = diffLines;
     return text;
   }
 

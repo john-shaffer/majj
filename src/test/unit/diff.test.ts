@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { StyledTextBuilder } from "../../ansi";
-import { appendShow } from "../../diff";
+import { appendShow, discardLines, parseFiles } from "../../diff";
 
 const ESC = "\x1b";
 const bold = (s: string) => `${ESC}[1m${s}${ESC}[0m`;
@@ -203,4 +203,35 @@ diff --git a/x b/x
   assert.deepEqual(spans.get(6), { kind: "chunk", key: "x\n0", headerLine: 6 });
   assert.deepEqual(spans.get(7), { kind: "chunk", key: "x\n1", headerLine: 7 });
   assert.deepEqual(spans.get(10), { kind: "chunk", key: "x\n1", headerLine: 7 });
+});
+
+test("discardLines discards individual added or removed lines and selections of changed lines", () => {
+  const [file] = parseFiles(
+    `diff --git a/x b/x
+@@ -1,5 +1,5 @@
+ line 1
+-old A
++new A
+ line 2
+-old B
++new B
+ line 3
+`.split("\n"),
+  );
+  const current = "line 1\nnew A\nline 2\nnew B\nline 3\n";
+
+  // Discard only "+new A" (line index 2 in chunk 0).
+  assert.equal(discardLines(current, file, new Map([[0, new Set([2])]])), "line 1\nline 2\nnew B\nline 3\n");
+
+  // Discard only "-old A" (line index 1 in chunk 0), restoring "old A" before "new A".
+  assert.equal(
+    discardLines(current, file, new Map([[0, new Set([1])]])),
+    "line 1\nold A\nnew A\nline 2\nnew B\nline 3\n",
+  );
+
+  // Discard selection covering "-old A", "+new A", " line 2", and "-old B" (indices 1, 2, 4).
+  assert.equal(
+    discardLines(current, file, new Map([[0, new Set([1, 2, 4])]])),
+    "line 1\nold A\nline 2\nold B\nnew B\nline 3\n",
+  );
 });

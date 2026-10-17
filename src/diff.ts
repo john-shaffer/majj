@@ -44,6 +44,17 @@ export interface FoldSpan {
   headerLine: number;
 }
 
+export interface DiffLine {
+  file: FileDiff;
+  chunkIndex: number;
+  /** Index within `chunk.lines`, or `undefined` on the `@@ ... @@` chunk header line. */
+  lineIndex?: number;
+  /** True when this line is an added (`+`) or removed (`-`) line. */
+  changed: boolean;
+}
+
+const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
+
 const displayPath = (file: FileDiff) => (file.from ? `${file.from} -> ${file.path}` : file.path);
 
 export function appendShow(
@@ -111,6 +122,7 @@ export function appendFileDiff(
   fileHeaderLine: number,
   foldSpans: Map<number, FoldSpan>,
   collapsedChunks: ReadonlySet<string> = new Set(),
+  diffLines?: Map<number, DiffLine>,
 ) {
   for (const line of file.headers) {
     foldSpans.set(out.line, { kind: "file", key: file.path, headerLine: fileHeaderLine });
@@ -120,16 +132,62 @@ export function appendFileDiff(
     const chunk = file.chunks[i];
     const key = `${file.path}\n${i}`;
     const chunkHeaderLine = out.line;
+    diffLines?.set(chunkHeaderLine, { file, chunkIndex: i, changed: false });
     appendDiffLine(out, chunk.header);
     if (!collapsedChunks.has(key)) {
-      for (const line of chunk.lines) {
-        appendDiffLine(out, line);
+      for (let j = 0; j < chunk.lines.length; j++) {
+        const plain = stripAnsi(chunk.lines[j]);
+        const changed = plain.startsWith("+") || plain.startsWith("-");
+        diffLines?.set(out.line, { file, chunkIndex: i, lineIndex: j, changed });
+        appendDiffLine(out, chunk.lines[j]);
       }
     }
     for (let l = chunkHeaderLine; l < out.line; l++) {
       foldSpans.set(l, { kind: "chunk", key, headerLine: chunkHeaderLine });
     }
   }
+}
+
+/**
+ * Returns `content` with the selected changed lines (`+` or `-`) in `file`
+ * reverted: discarded `+` lines are removed and discarded `-` lines are restored.
+ */
+export function discardLines(
+  content: string,
+  file: FileDiff,
+  discarded: ReadonlyMap<number, ReadonlySet<number>>,
+): string {
+  const fileLines = content.match(/[^\n]*\n|[^\n]+/g) ?? [];
+  const chunkIndices = [...discarded.keys()].sort((a, b) => b - a);
+  for (const chunkIndex of chunkIndices) {
+    const chunk = file.chunks[chunkIndex];
+    const selected = discarded.get(chunkIndex);
+    const match = chunk && HUNK_HEADER.exec(stripAnsi(chunk.header));
+    if (!chunk || !selected || !match) {
+      continue;
+    }
+    const newStart = Number(match[1]);
+    const newCount = match[2] !== undefined ? Number(match[2]) : 1;
+    const startIndex = newCount === 0 ? newStart : newStart - 1;
+    const replacement: string[] = [];
+    for (let j = 0; j < chunk.lines.length; j++) {
+      const plain = stripAnsi(chunk.lines[j]);
+      if (plain.startsWith("\\")) {
+        continue;
+      }
+      const noNewline = j + 1 < chunk.lines.length && stripAnsi(chunk.lines[j + 1]).startsWith("\\");
+      const text = plain.slice(1) + (noNewline ? "" : "\n");
+      if (plain.startsWith(" ")) {
+        replacement.push(text);
+      } else if (plain.startsWith("+") && !selected.has(j)) {
+        replacement.push(text);
+      } else if (plain.startsWith("-") && selected.has(j)) {
+        replacement.push(text);
+      }
+    }
+    fileLines.splice(startIndex, newCount, ...replacement);
+  }
+  return fileLines.join("");
 }
 
 function appendDiffLine(out: StyledTextBuilder, line: string) {
