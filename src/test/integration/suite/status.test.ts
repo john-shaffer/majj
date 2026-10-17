@@ -49,7 +49,7 @@ test("status command opens the status view", async () => {
   assert.match(
     text,
     new RegExp(
-      `^Working copy\\s+\\(@\\)\\s*: ${workingCopy}[\\s\\S]*\\nParent commit \\(@-\\): .*\\n\\nWorking copy changes:\\nA c\\.txt\\n\\nChanges:`,
+      `^Working copy\\s+\\(@\\)\\s*: ${workingCopy}[\\s\\S]*\\nParent commit \\(@-\\): .*\\n\\nWorking copy changes:\\n\\[ \\] A c\\.txt\\n\\nChanges:`,
     ),
   );
   assert.match(text, new RegExp(`^@  ${workingCopy} `, "m"));
@@ -174,7 +174,7 @@ test("visiting a working copy change opens the file", async () => {
   await vscode.commands.executeCommand("majj.status");
   await waitFor("the working copy changes", () => statusText().includes("A c.txt"));
   const editor = vscode.window.activeTextEditor!;
-  const line = editor.document.getText().split("\n").indexOf("A c.txt");
+  const line = editor.document.getText().split("\n").indexOf("[ ] A c.txt");
   editor.selection = new vscode.Selection(line, 0, line, 0);
   await vscode.commands.executeCommand("majj.visit");
 
@@ -214,7 +214,7 @@ test("views open in the editor group that isn't active", async () => {
 
   await waitFor("the graph", () => statusText().includes("Second change"));
   const editor = vscode.window.activeTextEditor!;
-  const line = editor.document.getText().split("\n").indexOf("A c.txt");
+  const line = editor.document.getText().split("\n").indexOf("[ ] A c.txt");
   editor.selection = new vscode.Selection(line, 0, line, 0);
   await vscode.commands.executeCommand("majj.visit");
   assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, path.join(repo, "c.txt"));
@@ -234,7 +234,7 @@ test("discarding a working copy file asks for y/n confirmation and restores it",
   await waitFor("the new file", () => statusText().includes("A discard-me.txt"));
 
   const editor = vscode.window.activeTextEditor!;
-  const line = editor.document.getText().split("\n").indexOf("A discard-me.txt");
+  const line = editor.document.getText().split("\n").indexOf("[ ] A discard-me.txt");
   editor.selection = new vscode.Selection(line, 0, line, 0);
 
   // Answering "n" aborts without touching the file.
@@ -266,13 +266,13 @@ test("discarding individual changed lines and selections of changed lines revert
     await waitFor("M b.txt to appear", () => statusText().includes("M b.txt"));
 
     const editor = vscode.window.activeTextEditor!;
-    const fileLine = editor.document.getText().split("\n").indexOf("M b.txt");
+    const fileLine = editor.document.getText().split("\n").indexOf("[ ] M b.txt");
     editor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
     await vscode.commands.executeCommand("majj.toggleFold");
-    await waitFor("b.txt diff to expand", () => statusText().includes("+b1\n+b2\n+b3"));
+    await waitFor("b.txt diff to expand", () => statusText().includes("[ ] +b1\n[ ] +b2\n[ ] +b3"));
 
     // Discard a single changed line (+b2).
-    const b2Line = editor.document.getText().split("\n").indexOf("+b2");
+    const b2Line = editor.document.getText().split("\n").indexOf("[ ] +b2");
     editor.selection = new vscode.Selection(b2Line, 0, b2Line, 0);
     const discardOne = vscode.commands.executeCommand("majj.discard");
     await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
@@ -283,8 +283,8 @@ test("discarding individual changed lines and selections of changed lines revert
 
     // Discard a selection spanning -b and +b1, restoring b and removing b1 while keeping b3.
     const lines = editor.document.getText().split("\n");
-    const minusB = lines.indexOf("-b");
-    const plusB1 = lines.indexOf("+b1");
+    const minusB = lines.indexOf("[ ] -b");
+    const plusB1 = lines.indexOf("[ ] +b1");
     editor.selection = new vscode.Selection(minusB, 0, plusB1, 0);
     const discardSelection = vscode.commands.executeCommand("majj.discard");
     await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
@@ -307,16 +307,16 @@ test("tab shows and hides changed files and chunks in the working copy and in ch
 
   // Expand c.txt in status.majj.
   const statusEditor = vscode.window.activeTextEditor!;
-  const fileLine = statusEditor.document.getText().split("\n").indexOf("A c.txt");
+  const fileLine = statusEditor.document.getText().split("\n").indexOf("[ ] A c.txt");
   statusEditor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
   await vscode.commands.executeCommand("majj.toggleFold");
-  await waitFor("c.txt diff to show", () => statusText().includes("A c.txt\n@@ -0,0 +1,1 @@\n+c"));
+  await waitFor("c.txt diff to show", () => statusText().includes("[ ] A c.txt\n[ ] @@ -0,0 +1,1 @@\n[ ] +c"));
 
   // Collapse the chunk from inside its body; @@ stays visible and the cursor returns to the @@ line.
   statusEditor.selection = new vscode.Selection(fileLine + 2, 0, fileLine + 2, 0);
   await vscode.commands.executeCommand("majj.toggleFold");
   await waitFor("c.txt chunk body to hide", () => !statusText().includes("+c"));
-  assert.ok(statusText().includes("A c.txt\n@@ -0,0 +1,1 @@"));
+  assert.ok(statusText().includes("[ ] A c.txt\n[ ] @@ -0,0 +1,1 @@"));
   assert.equal(statusEditor.selection.active.line, fileLine + 1);
 
   // Expand the chunk again, then collapse the whole file from its file line.
@@ -399,6 +399,72 @@ test("editing a change or commit in status.majj runs jj edit on it", async () =>
   }
 });
 
+test("selecting working copy changes with space then splitting with s and squashing with S", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const filePath = path.join(repo, "b.txt");
+  fs.writeFileSync(filePath, "b1\nb2\nb3\n");
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("M b.txt to appear", () => statusText().includes("[ ] M b.txt"));
+
+    const editor = vscode.window.activeTextEditor!;
+    let fileLine = editor.document.getText().split("\n").indexOf("[ ] M b.txt");
+    editor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("b.txt diff to expand", () => statusText().includes("[ ] +b1\n[ ] +b2\n[ ] +b3"));
+
+    // Select a single line (+b2) with space: file and chunk become [◐], line becomes [●].
+    const b2Line = editor.document.getText().split("\n").indexOf("[ ] +b2");
+    editor.selection = new vscode.Selection(b2Line, 0, b2Line, 0);
+    await vscode.commands.executeCommand("majj.toggleSelect");
+    await waitFor("partial selection markers", () =>
+      statusText().includes("[◐] M b.txt\n[◐] @@ -1,1 +1,3 @@\n[ ] -b\n[ ] +b1\n[●] +b2\n[ ] +b3"),
+    );
+
+    // Toggle chunk header with space: selects all lines in the chunk ([●]), then deselects all ([ ]).
+    const chunkLine = editor.document.getText().split("\n").indexOf("[◐] @@ -1,1 +1,3 @@");
+    editor.selection = new vscode.Selection(chunkLine, 0, chunkLine, 0);
+    await vscode.commands.executeCommand("majj.toggleSelect");
+    await waitFor("full selection markers", () =>
+      statusText().includes("[●] M b.txt\n[●] @@ -1,1 +1,3 @@\n[●] -b\n[●] +b1\n[●] +b2\n[●] +b3"),
+    );
+    await vscode.commands.executeCommand("majj.toggleSelect");
+    await waitFor("cleared selection markers", () => statusText().includes("[ ] M b.txt\n[ ] @@ -1,1 +1,3 @@"));
+
+    // Select -b and +b1 and split them into @- with s (majj.split).
+    const lines = editor.document.getText().split("\n");
+    const minusB = lines.indexOf("[ ] -b");
+    const plusB1 = lines.indexOf("[ ] +b1");
+    editor.selection = new vscode.Selection(minusB, 0, plusB1, 0);
+    await vscode.commands.executeCommand("majj.toggleSelect");
+    await waitFor("-b and +b1 selected", () => statusText().includes("[●] -b\n[●] +b1\n[ ] +b2"));
+    await vscode.commands.executeCommand("majj.split");
+    await waitFor("split to leave only +b2 and +b3 in @", () =>
+      statusText().includes("[ ] @@ -1,1 +1,3 @@\n     b1\n[ ] +b2\n[ ] +b3"),
+    );
+    assert.equal(jj("file", "show", "-r", "@-", "b.txt"), "b1\n");
+
+    // Select +b2 and squash it into @- with S (majj.squash).
+    const newB2Line = editor.document.getText().split("\n").indexOf("[ ] +b2");
+    editor.selection = new vscode.Selection(newB2Line, 0, newB2Line, 0);
+    await vscode.commands.executeCommand("majj.toggleSelect");
+    await waitFor("+b2 selected", () => statusText().includes("[●] +b2"));
+    await vscode.commands.executeCommand("majj.squash");
+    await waitFor("squash to leave only +b3 in @", () => !statusText().includes("+b2") && statusText().includes("+b3"));
+    assert.equal(jj("file", "show", "-r", "@-", "b.txt"), "b1\nb2\n");
+    assert.equal(fs.readFileSync(filePath, "utf8"), "b1\nb2\nb3\n");
+    // Fold state of M b.txt is preserved; collapse it before finishing.
+    fileLine = editor.document.getText().split("\n").indexOf("[ ] M b.txt");
+    editor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("repo restored", () => !statusText().includes("b.txt") && statusText().includes("[ ] A c.txt"));
+  }
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -413,9 +479,12 @@ test("help command opens help.majj with the essential commands", async () => {
       "Essential commands",
       "  g        refresh current buffer",
       "  TAB      toggle section at point",
+      "  SPC      toggle selection at point",
       "  RET      visit thing at point",
       "  e        edit change at point",
       "  k        discard at point",
+      "  s        split selected changes",
+      "  S        squash changes",
       "  q        exit / close majj view",
     ].join("\n"),
   );

@@ -1,7 +1,16 @@
 import * as vscode from "vscode";
 import { stripAnsi, Style, StyledText, StyledTextBuilder } from "./ansi";
 import { getConfig } from "./config";
-import { appendFileDiff, DiffLine, FileDiff, FoldSpan, parseFiles } from "./diff";
+import {
+  appendFileDiff,
+  changedLinesByChunk,
+  DiffLine,
+  FileDiff,
+  fileSelectionState,
+  FoldSpan,
+  parseFiles,
+  selectionPrefix,
+} from "./diff";
 import { configGet, JjError, runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
 import { WorkingCopyFile, workingCopyFiles } from "./workingCopy";
@@ -26,19 +35,37 @@ export interface Status {
   foldSpans: Map<number, FoldSpan>;
   /** The rendered diff chunk or line at each expanded working copy diff line, by line index. */
   diffLines: Map<number, DiffLine>;
+  /** Parsed file diffs for the working copy, keyed by workspace-relative path. */
+  diffs: Map<string, FileDiff>;
 }
 
-interface StatusData {
+export interface SelectedFile {
+  wcFile: WorkingCopyFile;
+  fileDiff?: FileDiff;
+  /** For a partially selected file (`[◐]`), the changed lines that were NOT selected. */
+  unselected?: Map<number, Set<number>>;
+}
+
+export interface StatusData {
   status: string;
   diff: string;
   log: string;
   revset: string;
 }
 
+function selectableByChunk(fileDiff?: FileDiff): Map<number, Set<number>> {
+  const byChunk = changedLinesByChunk(fileDiff);
+  if (byChunk.size === 0) {
+    byChunk.set(-1, new Set([-1]));
+  }
+  return byChunk;
+}
+
 export function formatStatus(
   data: StatusData,
   expandedFiles: ReadonlySet<string> = new Set(),
   collapsedChunks: ReadonlySet<string> = new Set(),
+  selected: ReadonlyMap<string, ReadonlyMap<number, ReadonlySet<number>>> = new Map(),
 ): Status {
   const out = new StyledTextBuilder();
   const changes = new Map<number, string>();
@@ -66,14 +93,19 @@ export function formatStatus(
     }
     const wcFile = rawFiles.get(i);
     const headerLine = out.line;
-    out.appendAnsi(statusLines[i]).newline();
     if (wcFile) {
+      const fileDiff = diffs.get(wcFile.path);
+      const allByChunk = selectableByChunk(fileDiff);
+      const selectedInFile = selected.get(wcFile.path) ?? new Map<number, ReadonlySet<number>>();
+      out.append(selectionPrefix(fileSelectionState(allByChunk, selectedInFile)));
+      out.appendAnsi(statusLines[i]).newline();
       files.set(headerLine, wcFile);
       foldSpans.set(headerLine, { kind: "file", key: wcFile.path, headerLine });
-      const fileDiff = diffs.get(wcFile.path);
       if (expandedFiles.has(wcFile.path) && fileDiff) {
-        appendFileDiff(out, fileDiff, headerLine, foldSpans, collapsedChunks, diffLines);
+        appendFileDiff(out, fileDiff, headerLine, foldSpans, collapsedChunks, diffLines, selectedInFile);
       }
+    } else {
+      out.appendAnsi(statusLines[i]).newline();
     }
   }
   out.separate();
@@ -91,7 +123,7 @@ export function formatStatus(
     }
     out.appendAnsi(mark ? line.replace(mark[0], "") : line).newline();
   }
-  return { text: out.build(), changes, files, foldSpans, diffLines };
+  return { text: out.build(), changes, files, foldSpans, diffLines, diffs };
 }
 
 async function fetchStatusData(root: string): Promise<StatusData> {
@@ -144,6 +176,7 @@ function errorStatus(root: string, e: unknown): Status {
     files: new Map(),
     foldSpans: new Map(),
     diffLines: new Map(),
+    diffs: new Map(),
   };
 }
 
@@ -175,10 +208,12 @@ export class StatusView extends View {
   private raw?: StatusData;
   private expandedFiles = new Set<string>();
   private collapsedChunks = new Set<string>();
+  private selected = new Map<string, Map<number, Set<number>>>();
   private changes = new Map<number, string>();
   private files = new Map<number, WorkingCopyFile>();
   private foldSpans = new Map<number, FoldSpan>();
   private diffLines = new Map<number, DiffLine>();
+  private diffs = new Map<string, FileDiff>();
 
   /** The ID of the change shown on a line of the change graph. */
   changeAt(line: number): string | undefined {
@@ -241,22 +276,164 @@ export class StatusView extends View {
     } else {
       set.add(span.key);
     }
-    this.update(this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks)));
+    this.update(this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks, this.selected)));
     return span.headerLine;
   }
 
-  private applyStatus({ text, changes, files, foldSpans, diffLines }: Status): StyledText {
+  toggleSelect(startLine: number, endLine: number): void {
+    if (!this.raw) {
+      return;
+    }
+    const targets: { path: string; chunkIndex: number; lineIndex: number }[] = [];
+    const addFileTargets = (path: string) => {
+      for (const [c, lines] of selectableByChunk(this.diffs.get(path))) {
+        for (const j of lines) {
+          targets.push({ path, chunkIndex: c, lineIndex: j });
+        }
+      }
+    };
+    if (startLine === endLine) {
+      const wcFile = this.files.get(startLine);
+      const dl = this.diffLines.get(startLine);
+      if (wcFile) {
+        addFileTargets(wcFile.path);
+      } else if (dl && dl.lineIndex === undefined) {
+        const lines = selectableByChunk(dl.file).get(dl.chunkIndex);
+        for (const j of lines ?? []) {
+          targets.push({ path: dl.file.path, chunkIndex: dl.chunkIndex, lineIndex: j });
+        }
+      } else if (dl?.changed && dl.lineIndex !== undefined) {
+        targets.push({ path: dl.file.path, chunkIndex: dl.chunkIndex, lineIndex: dl.lineIndex });
+      }
+    } else {
+      for (let l = startLine; l <= endLine; l++) {
+        const dl = this.diffLines.get(l);
+        if (dl?.changed && dl.lineIndex !== undefined) {
+          targets.push({ path: dl.file.path, chunkIndex: dl.chunkIndex, lineIndex: dl.lineIndex });
+        }
+      }
+      if (targets.length === 0) {
+        for (let l = startLine; l <= endLine; l++) {
+          const wcFile = this.files.get(l);
+          if (wcFile) {
+            addFileTargets(wcFile.path);
+          }
+        }
+      }
+    }
+    if (targets.length === 0) {
+      return;
+    }
+    const allSelected = targets.every((t) => this.selected.get(t.path)?.get(t.chunkIndex)?.has(t.lineIndex));
+    for (const t of targets) {
+      if (allSelected) {
+        const byChunk = this.selected.get(t.path);
+        const lines = byChunk?.get(t.chunkIndex);
+        lines?.delete(t.lineIndex);
+        if (lines?.size === 0) {
+          byChunk?.delete(t.chunkIndex);
+        }
+        if (byChunk?.size === 0) {
+          this.selected.delete(t.path);
+        }
+      } else {
+        let byChunk = this.selected.get(t.path);
+        if (!byChunk) {
+          this.selected.set(t.path, (byChunk = new Map()));
+        }
+        let lines = byChunk.get(t.chunkIndex);
+        if (!lines) {
+          byChunk.set(t.chunkIndex, (lines = new Set()));
+        }
+        lines.add(t.lineIndex);
+      }
+    }
+    this.update(this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks, this.selected)));
+  }
+
+  selectedFiles(): SelectedFile[] {
+    const result: SelectedFile[] = [];
+    for (const wcFile of this.files.values()) {
+      const fileDiff = this.diffs.get(wcFile.path);
+      const allByChunk = selectableByChunk(fileDiff);
+      const selByChunk = this.selected.get(wcFile.path);
+      const state = fileSelectionState(allByChunk, selByChunk);
+      if (state === "all") {
+        result.push({ wcFile });
+      } else if (state === "some" && fileDiff) {
+        const unselected = new Map<number, Set<number>>();
+        for (const [c, lines] of allByChunk) {
+          const sel = selByChunk?.get(c);
+          for (const j of lines) {
+            if (!sel?.has(j)) {
+              let set = unselected.get(c);
+              if (!set) {
+                unselected.set(c, (set = new Set()));
+              }
+              set.add(j);
+            }
+          }
+        }
+        result.push({ wcFile, fileDiff, unselected });
+      }
+    }
+    return result;
+  }
+
+  clearSelection(): void {
+    this.selected.clear();
+  }
+
+  private pruneSelection(raw: StatusData): void {
+    const validPaths = new Set([...workingCopyFiles(stripAnsi(raw.status)).values()].map((f) => f.path));
+    for (const filePath of this.expandedFiles) {
+      if (!validPaths.has(filePath)) {
+        this.expandedFiles.delete(filePath);
+      }
+    }
+    for (const chunkKey of this.collapsedChunks) {
+      if (!validPaths.has(chunkKey.split("\n")[0])) {
+        this.collapsedChunks.delete(chunkKey);
+      }
+    }
+    const diffs = new Map(parseFiles(raw.diff.split("\n")).map((f) => [f.path, f]));
+    for (const [filePath, selByChunk] of this.selected) {
+      if (!validPaths.has(filePath)) {
+        this.selected.delete(filePath);
+        continue;
+      }
+      const allByChunk = selectableByChunk(diffs.get(filePath));
+      for (const [c, selLines] of selByChunk) {
+        const validLines = allByChunk.get(c);
+        for (const j of selLines) {
+          if (!validLines?.has(j)) {
+            selLines.delete(j);
+          }
+        }
+        if (selLines.size === 0) {
+          selByChunk.delete(c);
+        }
+      }
+      if (selByChunk.size === 0) {
+        this.selected.delete(filePath);
+      }
+    }
+  }
+
+  private applyStatus({ text, changes, files, foldSpans, diffLines, diffs }: Status): StyledText {
     this.changes = changes;
     this.files = files;
     this.foldSpans = foldSpans;
     this.diffLines = diffLines;
+    this.diffs = diffs;
     return text;
   }
 
   protected async render(): Promise<StyledText> {
     try {
       this.raw = await fetchStatusData(this.root);
-      return this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks));
+      this.pruneSelection(this.raw);
+      return this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks, this.selected));
     } catch (e) {
       this.raw = undefined;
       return this.applyStatus(errorStatus(this.root, e));

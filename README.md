@@ -17,7 +17,7 @@ Working copy  (@) : kmsumtwq ffd642af (no description set)
 Parent commit (@-): rlprsrnn 36f55765 master | Retry requests rejected for an expired signature
 
 Working copy changes:
-A c.txt
+[ ] A c.txt
 
 Changes:
 @  kmsumtwq jdsha@pm.me 2026-10-14 12:29:28 ffd642af
@@ -31,8 +31,10 @@ view, `enter` on a change in the graph to open `change.majj` with its
 `jj show` output, or `e` on a change or commit to run `jj edit` on it. Like magit's revision buffer, `change.majj` and `help.majj`
 open as preview tabs, which the next one you open replaces. Press `enter` on a
 file under "Working copy changes" to open the file, `tab` on a file or diff
-chunk to show or hide it (also in `change.majj`), or `k` to discard its
-changes after a `y`/`n` confirmation.
+chunk to show or hide it (also in `change.majj`), `space` on a file, chunk, or
+changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `s` to split the
+selected changes (`jj split`), `S` to squash changes (`jj squash`), or `k` to
+discard a file, chunk, or changed lines after a `y`/`n` confirmation.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.
@@ -45,8 +47,11 @@ or the second if the first is active, splitting the editor if there's only one. 
 | `majj.edit`                          | `e`       | in the status view           |
 | `majj.help`                          | `?`       | in majj views                |
 | `majj.refresh`                       | `g`       | in majj views                |
+| `majj.split`                         | `s`       | in the status view           |
+| `majj.squash`                        | `S`       | in the status view           |
 | `majj.status`                        | `alt+x j` | anywhere                     |
 | `majj.toggleFold`                    | `tab`     | in status and change views   |
+| `majj.toggleSelect`                  | `space`   | in the status view           |
 | `majj.visit`                         | `enter`   | in the status view           |
 | `workbench.action.closeActiveEditor` | `q`       | in majj views                |
 

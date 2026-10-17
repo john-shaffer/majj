@@ -15,9 +15,12 @@ test("default keybindings render the essential commands section", () => {
     "Essential commands",
     "  g        refresh current buffer",
     "  TAB      toggle section at point",
+    "  SPC      toggle selection at point",
     "  RET      visit thing at point",
     "  e        edit change at point",
     "  k        discard at point",
+    "  s        split selected changes",
+    "  S        squash changes",
     "  q        exit / close majj view",
   ]);
   assert.deepEqual(text.spans, [
@@ -25,9 +28,12 @@ test("default keybindings render the essential commands section", () => {
     { line: 1, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 2, start: 2, end: 5, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 3, start: 2, end: 5, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 4, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 4, start: 2, end: 5, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 5, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 6, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 7, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 8, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 9, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
   ]);
 });
 
@@ -46,15 +52,19 @@ test("user keybindings override defaults and widen the key column when needed", 
     "Essential commands",
     "  R           refresh current buffer",
     "  TAB         toggle section at point",
+    "  SPC         toggle selection at point",
     "  ctrl+enter  visit thing at point",
     "  e           edit change at point",
     "  k           discard at point",
+    "  s           split selected changes",
+    "  S           squash changes",
     "  q           exit / close majj view",
   ]);
 });
 
 test("displayKey formats special keys like magit", () => {
   assert.equal(displayKey("enter"), "RET");
+  assert.equal(displayKey("space"), "SPC");
   assert.equal(displayKey("tab"), "TAB");
   assert.equal(displayKey("shift+a"), "A");
   assert.equal(displayKey("shift-x"), "X");

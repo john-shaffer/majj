@@ -1,7 +1,14 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { StyledTextBuilder } from "../../ansi";
-import { appendShow, discardLines, parseFiles } from "../../diff";
+import {
+  appendFileDiff,
+  appendShow,
+  changedLinesByChunk,
+  discardLines,
+  fileSelectionState,
+  parseFiles,
+} from "../../diff";
 
 const ESC = "\x1b";
 const bold = (s: string) => `${ESC}[1m${s}${ESC}[0m`;
@@ -234,4 +241,44 @@ test("discardLines discards individual added or removed lines and selections of 
     discardLines(current, file, new Map([[0, new Set([1, 2, 4])]])),
     "line 1\nold A\nline 2\nold B\nnew B\nline 3\n",
   );
+});
+
+test("appendFileDiff renders selection markers [ ], [◐], and [●] for chunks and changed lines", () => {
+  const [file] = parseFiles(
+    `diff --git a/x b/x
+@@ -1,2 +1,3 @@
+ a
+-b
++b1
+@@ -10,1 +11,2 @@
+ c
++d
+`.split("\n"),
+  );
+  const allByChunk = changedLinesByChunk(file);
+  const selected = new Map<number, Set<number>>([[0, new Set([1])]]);
+  assert.equal(fileSelectionState(allByChunk, new Map()), "none");
+  assert.equal(fileSelectionState(allByChunk, selected), "some");
+  assert.equal(
+    fileSelectionState(
+      allByChunk,
+      new Map([
+        [0, new Set([1, 2])],
+        [1, new Set([1])],
+      ]),
+    ),
+    "all",
+  );
+
+  const out = new StyledTextBuilder();
+  appendFileDiff(out, file, 0, new Map(), new Set(), undefined, selected);
+  assert.deepEqual(out.build().lines, [
+    "[◐] @@ -1,2 +1,3 @@",
+    "     a",
+    "[●] -b",
+    "[ ] +b1",
+    "[ ] @@ -10,1 +11,2 @@",
+    "     c",
+    "[ ] +d",
+  ]);
 });

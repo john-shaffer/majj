@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { stripAnsi } from "./ansi";
 import { getConfig } from "./config";
@@ -46,6 +47,57 @@ export async function edit(cwd: string, revision: string): Promise<void> {
 /** Restores the given workspace-relative paths in the working copy from its parent(s). */
 export async function restore(cwd: string, paths: string[]): Promise<void> {
   await runJj(cwd, ["restore", "--", ...paths.map(fileset)]);
+}
+
+export interface SelectedChanges {
+  /** Workspace-relative paths (including both sides of renames) to include in the operation. */
+  paths: string[];
+  /** Workspace-relative file path -> file content containing only the selected changes, for partially selected files. */
+  partialFiles: Map<string, string>;
+}
+
+async function runWithSelection(cwd: string, baseArgs: string[], selection?: SelectedChanges): Promise<void> {
+  if (!selection) {
+    await runJj(cwd, baseArgs);
+    return;
+  }
+  const filesets = selection.paths.map(fileset);
+  if (selection.partialFiles.size === 0) {
+    await runJj(cwd, [...baseArgs, "--", ...filesets]);
+    return;
+  }
+  const stagedDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "majj-select-"));
+  try {
+    for (const [relPath, content] of selection.partialFiles) {
+      const target = path.join(stagedDir, relPath);
+      await fs.promises.mkdir(path.dirname(target), { recursive: true });
+      await fs.promises.writeFile(target, content);
+    }
+    const editArgs = JSON.stringify(["-rf", `${stagedDir}/.`, "$right/"]);
+    await runJj(cwd, [
+      ...baseArgs,
+      "--tool",
+      "majj",
+      "--config",
+      'merge-tools.majj.program="cp"',
+      "--config",
+      `merge-tools.majj.edit-args=${editArgs}`,
+      "--",
+      ...filesets,
+    ]);
+  } finally {
+    await fs.promises.rm(stagedDir, { recursive: true, force: true });
+  }
+}
+
+/** Splits the selected working copy changes into a parent commit (`jj split`). */
+export async function split(cwd: string, selection: SelectedChanges): Promise<void> {
+  await runWithSelection(cwd, ["split", "-m", ""], selection);
+}
+
+/** Squashes the selected working copy changes (or all working copy changes if none are selected) into `@-` (`jj squash`). */
+export async function squash(cwd: string, selection?: SelectedChanges): Promise<void> {
+  await runWithSelection(cwd, ["squash", "--config", 'ui.editor="true"'], selection);
 }
 
 /**

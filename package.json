@@ -41,6 +41,16 @@
         "category": "Majj"
       },
       {
+        "command": "majj.split",
+        "title": "Split Selected Changes",
+        "category": "Majj"
+      },
+      {
+        "command": "majj.squash",
+        "title": "Squash Changes",
+        "category": "Majj"
+      },
+      {
         "command": "majj.status",
         "title": "Status",
         "category": "Majj"
@@ -48,6 +58,11 @@
       {
         "command": "majj.toggleFold",
         "title": "Toggle Section at Point",
+        "category": "Majj"
+      },
+      {
+        "command": "majj.toggleSelect",
+        "title": "Toggle Selection at Point",
         "category": "Majj"
       },
       {
@@ -144,12 +159,27 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.split",
+        "key": "s",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.squash",
+        "key": "shift+s",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.status",
         "key": "alt+x j"
       },
       {
         "command": "majj.toggleFold",
         "key": "tab",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.toggleSelect",
+        "key": "space",
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
@@ -193,7 +223,19 @@
           "when": "editorLangId == majj"
         },
         {
+          "command": "majj.split",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.squash",
+          "when": "editorLangId == majj"
+        },
+        {
           "command": "majj.toggleFold",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.toggleSelect",
           "when": "editorLangId == majj"
         },
         {

@@ -6,7 +6,7 @@ import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
-import { edit, findRoot, restore } from "./jj";
+import { edit, findRoot, restore, SelectedChanges, split, squash } from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
@@ -165,6 +165,64 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const buildSelectedChanges = async (view: StatusView): Promise<SelectedChanges | undefined> => {
+    const items = view.selectedFiles();
+    if (items.length === 0) {
+      return undefined;
+    }
+    const paths: string[] = [];
+    const partialFiles = new Map<string, string>();
+    for (const { wcFile, fileDiff, unselected } of items) {
+      paths.push(...wcFile.restorePaths);
+      if (fileDiff && unselected) {
+        const fullPath = path.join(view.root, wcFile.path);
+        let current = "";
+        try {
+          current = await fs.readFile(fullPath, "utf8");
+        } catch {
+          // File was deleted in the working copy.
+        }
+        partialFiles.set(wcFile.path, discardLines(current, fileDiff, unselected));
+      }
+    }
+    return { paths, partialFiles };
+  };
+
+  const splitSelected = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    try {
+      const selection = await buildSelectedChanges(view);
+      if (!selection) {
+        return;
+      }
+      await split(view.root, selection);
+      view.clearSelection();
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const squashSelected = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    try {
+      const selection = await buildSelectedChanges(view);
+      await squash(view.root, selection);
+      view.clearSelection();
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   const showHelp = async () => {
     const active = vscode.window.activeTextEditor?.document.uri;
     const root = active?.scheme === SCHEME ? active.query : ((await resolveRoot()) ?? "");
@@ -193,6 +251,14 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const toggleSelect = () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (editor && view instanceof StatusView) {
+      view.toggleSelect(editor.selection.start.line, editor.selection.end.line);
+    }
+  };
+
   context.subscriptions.push(
     decorator,
     changed,
@@ -201,8 +267,11 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.refresh", refresh),
+    vscode.commands.registerCommand("majj.split", splitSelected),
+    vscode.commands.registerCommand("majj.squash", squashSelected),
     vscode.commands.registerCommand("majj.status", showStatus),
     vscode.commands.registerCommand("majj.toggleFold", toggleFold),
+    vscode.commands.registerCommand("majj.toggleSelect", toggleSelect),
     vscode.commands.registerCommand("majj.visit", visit),
     vscode.workspace.onDidChangeTextDocument((e) => {
       const view = viewFor(e.document.uri);

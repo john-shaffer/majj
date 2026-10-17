@@ -20,9 +20,12 @@ interface HelpEntry {
 const ESSENTIAL: HelpEntry[] = [
   { command: "majj.refresh", description: "refresh current buffer" },
   { command: "majj.toggleFold", description: "toggle section at point" },
+  { command: "majj.toggleSelect", description: "toggle selection at point" },
   { command: "majj.visit", description: "visit thing at point" },
   { command: "majj.edit", description: "edit change at point" },
   { command: "majj.discard", description: "discard at point" },
+  { command: "majj.split", description: "split selected changes" },
+  { command: "majj.squash", description: "squash changes" },
   { command: "workbench.action.closeActiveEditor", description: "exit / close majj view" },
 ];
 
@@ -32,6 +35,9 @@ export function displayKey(key: string): string {
   }
   if (key === "enter") {
     return "RET";
+  }
+  if (key === "space") {
+    return "SPC";
   }
   if (key === "tab") {
     return "TAB";

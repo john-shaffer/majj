@@ -116,6 +116,63 @@ export function appendShow(
   return foldSpans;
 }
 
+export type SelectionState = "none" | "some" | "all";
+
+export const selectionPrefix = (state: SelectionState) =>
+  state === "all" ? "[●] " : state === "some" ? "[◐] " : "[ ] ";
+
+/** The indices of added (`+`) and removed (`-`) lines in each chunk of `file`. */
+export function changedLinesByChunk(file?: FileDiff): Map<number, Set<number>> {
+  const byChunk = new Map<number, Set<number>>();
+  file?.chunks.forEach((chunk, i) => {
+    const indices = new Set<number>();
+    chunk.lines.forEach((line, j) => {
+      const plain = stripAnsi(line);
+      if (plain.startsWith("+") || plain.startsWith("-")) {
+        indices.add(j);
+      }
+    });
+    if (indices.size > 0) {
+      byChunk.set(i, indices);
+    }
+  });
+  return byChunk;
+}
+
+export function chunkSelectionState(
+  allInChunk: ReadonlySet<number> | undefined,
+  selectedInChunk: ReadonlySet<number> | undefined,
+): SelectionState {
+  if (!allInChunk || allInChunk.size === 0 || !selectedInChunk || selectedInChunk.size === 0) {
+    return "none";
+  }
+  let count = 0;
+  for (const j of allInChunk) {
+    if (selectedInChunk.has(j)) {
+      count++;
+    }
+  }
+  return count === 0 ? "none" : count === allInChunk.size ? "all" : "some";
+}
+
+export function fileSelectionState(
+  allByChunk: ReadonlyMap<number, ReadonlySet<number>>,
+  selectedByChunk: ReadonlyMap<number, ReadonlySet<number>> | undefined,
+): SelectionState {
+  let total = 0;
+  let selected = 0;
+  for (const [c, lines] of allByChunk) {
+    const sel = selectedByChunk?.get(c);
+    for (const j of lines) {
+      total++;
+      if (sel?.has(j)) {
+        selected++;
+      }
+    }
+  }
+  return total === 0 || selected === 0 ? "none" : selected === total ? "all" : "some";
+}
+
 export function appendFileDiff(
   out: StyledTextBuilder,
   file: FileDiff,
@@ -123,9 +180,14 @@ export function appendFileDiff(
   foldSpans: Map<number, FoldSpan>,
   collapsedChunks: ReadonlySet<string> = new Set(),
   diffLines?: Map<number, DiffLine>,
+  selectedInFile?: ReadonlyMap<number, ReadonlySet<number>>,
 ) {
+  const byChunk = selectedInFile ? changedLinesByChunk(file) : undefined;
   for (const line of file.headers) {
     foldSpans.set(out.line, { kind: "file", key: file.path, headerLine: fileHeaderLine });
+    if (selectedInFile) {
+      out.append("    ");
+    }
     appendDiffLine(out, line);
   }
   for (let i = 0; i < file.chunks.length; i++) {
@@ -133,12 +195,19 @@ export function appendFileDiff(
     const key = `${file.path}\n${i}`;
     const chunkHeaderLine = out.line;
     diffLines?.set(chunkHeaderLine, { file, chunkIndex: i, changed: false });
+    if (selectedInFile) {
+      out.append(selectionPrefix(chunkSelectionState(byChunk?.get(i), selectedInFile.get(i))));
+    }
     appendDiffLine(out, chunk.header);
     if (!collapsedChunks.has(key)) {
+      const selChunk = selectedInFile?.get(i);
       for (let j = 0; j < chunk.lines.length; j++) {
         const plain = stripAnsi(chunk.lines[j]);
         const changed = plain.startsWith("+") || plain.startsWith("-");
         diffLines?.set(out.line, { file, chunkIndex: i, lineIndex: j, changed });
+        if (selectedInFile) {
+          out.append(changed ? selectionPrefix(selChunk?.has(j) ? "all" : "none") : "    ");
+        }
         appendDiffLine(out, chunk.lines[j]);
       }
     }
