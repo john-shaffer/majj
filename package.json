@@ -21,6 +21,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "majj.abandon",
+        "title": "Abandon Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.discard",
         "title": "Discard at Point",
         "category": "Majj"
@@ -154,6 +159,11 @@
     },
     "keybindings": [
       {
+        "command": "majj.abandon",
+        "key": "a",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.discard",
         "key": "k",
         "when": "editorTextFocus && editorLangId == majj"
@@ -246,6 +256,10 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "majj.abandon",
+          "when": "editorLangId == majj"
+        },
         {
           "command": "majj.discard",
           "when": "editorLangId == majj"

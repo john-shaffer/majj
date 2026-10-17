@@ -7,6 +7,7 @@ import { Decorator } from "./decorations";
 import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
 import {
+  abandon,
   edit,
   findRoot,
   rebase,
@@ -119,6 +120,24 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       return await fs.readFile(path.join(root, relPath), "utf8");
     } catch {
       return "";
+    }
+  };
+
+  const abandonChange = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    const change = view.changeAt(editor.selection.active.line);
+    if (!change) {
+      return;
+    }
+    try {
+      await abandon(view.root, change);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
     }
   };
 
@@ -364,6 +383,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     decorator,
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
+    vscode.commands.registerCommand("majj.abandon", abandonChange),
     vscode.commands.registerCommand("majj.discard", discard),
     vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.help", showHelp),

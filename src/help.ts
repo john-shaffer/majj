@@ -22,6 +22,7 @@ const ESSENTIAL: HelpEntry[] = [
   { command: "majj.toggleFold", description: "toggle section at point" },
   { command: "majj.toggleSelect", description: "toggle selection at point" },
   { command: "majj.visit", description: "visit thing at point" },
+  { command: "majj.abandon", description: "abandon change at point" },
   { command: "majj.edit", description: "edit change at point" },
   { command: "majj.discard", description: "discard at point" },
   { command: "majj.rebase", description: "rebase change at point" },

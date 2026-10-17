@@ -39,6 +39,11 @@ function fileset(file: string): string {
   return `root-file:"${file.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+/** Abandons `revision` (`jj abandon`). */
+export async function abandon(cwd: string, revision: string): Promise<void> {
+  await runJj(cwd, ["abandon", revision]);
+}
+
 /** Makes `revision` the working copy change (`jj edit`). */
 export async function edit(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["edit", revision]);

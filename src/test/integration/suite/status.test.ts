@@ -567,6 +567,26 @@ test("restoring selected working copy changes or a change at point with X runs j
   }
 });
 
+test("abandoning a change in status.majj with a runs jj abandon", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("Sibling change in graph", () => statusText().includes("Sibling change"));
+
+    const editor = vscode.window.activeTextEditor!;
+    const lines = editor.document.getText().split("\n");
+    const siblingLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Sibling change"));
+    editor.selection = new vscode.Selection(siblingLine, 0, siblingLine, 0);
+    await vscode.commands.executeCommand("majj.abandon");
+    await waitFor("Sibling change to be abandoned", () => !statusText().includes("Sibling change"));
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("Sibling change restored", () => statusText().includes("Sibling change"));
+  }
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -583,6 +603,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  TAB      toggle section at point",
       "  SPC      toggle selection at point",
       "  RET      visit thing at point",
+      "  a        abandon change at point",
       "  e        edit change at point",
       "  k        discard at point",
       "  r        rebase change at point",
