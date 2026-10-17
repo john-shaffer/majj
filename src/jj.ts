@@ -33,6 +33,16 @@ export async function findRoot(dir: string): Promise<string> {
   return (await runJj(dir, ["root"])).trim();
 }
 
+/** A `root-file:` fileset pattern for an exact workspace-relative path. */
+function fileset(file: string): string {
+  return `root-file:"${file.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+/** Restores the given workspace-relative paths in the working copy from its parent(s). */
+export async function restore(cwd: string, paths: string[]): Promise<void> {
+  await runJj(cwd, ["restore", "--", ...paths.map(fileset)]);
+}
+
 /**
  * The repo directory shared by all workspaces of the repository. In the main
  * workspace `.jj/repo` is that directory; in secondary workspaces it is a file

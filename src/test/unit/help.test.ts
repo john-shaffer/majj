@@ -15,6 +15,7 @@ test("default keybindings render the essential commands section", () => {
     "Essential commands",
     "  g        refresh current buffer",
     "  RET      visit thing at point",
+    "  k        discard at point",
     "  q        exit / close majj view",
   ]);
   assert.deepEqual(text.spans, [
@@ -22,6 +23,7 @@ test("default keybindings render the essential commands section", () => {
     { line: 1, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 2, start: 2, end: 5, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 3, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 4, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
   ]);
 });
 
@@ -40,6 +42,7 @@ test("user keybindings override defaults and widen the key column when needed", 
     "Essential commands",
     "  R           refresh current buffer",
     "  ctrl+enter  visit thing at point",
+    "  k           discard at point",
     "  q           exit / close majj view",
   ]);
 });

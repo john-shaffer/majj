@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { workingCopyFiles } from "../../workingCopy";
 
-test("working copy change lines map to the files' paths", () => {
+test("workingCopyFiles maps each line to its path, deleted flag, and restore paths", () => {
   const files = workingCopyFiles(`Working copy changes:
 M src/a.ts
 A sp ace.txt
@@ -15,11 +15,12 @@ Parent commit (@-): nyuonnkm e9ca4c97 M not/a/file`);
   assert.deepEqual(
     [...files],
     [
-      [1, "src/a.ts"],
-      [2, "sp ace.txt"],
-      [4, "src/new.txt"],
-      [5, "src/top.txt"],
-      [6, "b/c"],
+      [1, { path: "src/a.ts", deleted: false, restorePaths: ["src/a.ts"] }],
+      [2, { path: "sp ace.txt", deleted: false, restorePaths: ["sp ace.txt"] }],
+      [3, { path: "gone", deleted: true, restorePaths: ["gone"] }],
+      [4, { path: "src/new.txt", deleted: false, restorePaths: ["src/old.txt", "src/new.txt"] }],
+      [5, { path: "src/top.txt", deleted: false, restorePaths: ["top.txt", "src/top.txt"] }],
+      [6, { path: "b/c", deleted: false, restorePaths: ["b/c"] }],
     ],
   );
 });

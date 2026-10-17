@@ -21,6 +21,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "majj.discard",
+        "title": "Discard at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.help",
         "title": "Help",
         "category": "Majj"
@@ -104,6 +109,11 @@
     },
     "keybindings": [
       {
+        "command": "majj.discard",
+        "key": "k",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.help",
         "key": "shift+-",
         "when": "editorTextFocus && editorLangId == majj"
@@ -146,6 +156,10 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "majj.discard",
+          "when": "editorLangId == majj"
+        },
         {
           "command": "majj.help",
           "when": "editorLangId == majj"

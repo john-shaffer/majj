@@ -4,14 +4,20 @@ import { StyledText } from "./ansi";
 import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { HelpView } from "./helpView";
-import { findRoot } from "./jj";
+import { findRoot, restore } from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
 /** Open views by URI. */
 const views = new Map<string, View>();
 
+let activeConfirmation: { prompt: string; answer: (input: string) => void } | undefined;
+
 export interface MajjApi {
+  /** Sends keyboard input to the open y/n confirmation prompt. Used by tests. */
+  answerConfirmation(input: string): void;
+  /** The validation message of the open y/n confirmation prompt, if any. Used by tests. */
+  confirmPrompt(): string | undefined;
   /** The rendered status for a workspace root, if a status view for it is open. Used by tests. */
   getStatus(root: string): StyledText | undefined;
 }
@@ -84,12 +90,28 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       const line = editor.selection.active.line;
       const file = view.fileAt(line);
       const change = view.changeAt(line);
-      if (file) {
-        await vscode.window.showTextDocument(vscode.Uri.file(path.join(view.root, file)), {
+      if (file && !file.deleted) {
+        await vscode.window.showTextDocument(vscode.Uri.file(path.join(view.root, file.path)), {
           viewColumn: otherColumn(),
         });
       } else if (change) {
         await showView(ChangeView.uriFor(view.root, change), true);
+      }
+    }
+  };
+
+  const discard = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (editor && view instanceof StatusView) {
+      const file = view.fileAt(editor.selection.active.line);
+      if (file && (await confirm(`Discard changes to ${file.path}?`))) {
+        try {
+          await restore(view.root, file.restorePaths);
+          await view.refresh();
+        } catch (e) {
+          void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+        }
       }
     }
   };
@@ -114,6 +136,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     decorator,
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
+    vscode.commands.registerCommand("majj.discard", discard),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.status", showStatus),
     vscode.commands.registerCommand("majj.visit", visit),
@@ -150,7 +173,53 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     { dispose: () => views.forEach((view) => view.dispose()) },
   );
 
-  return { getStatus: (root) => viewFor(StatusView.uriFor(root))?.content };
+  return {
+    answerConfirmation: (input) => activeConfirmation?.answer(input),
+    confirmPrompt: () => activeConfirmation?.prompt,
+    getStatus: (root) => viewFor(StatusView.uriFor(root))?.content,
+  };
+}
+
+function confirm(prompt: string): Promise<boolean> {
+  const validationMessage = `${prompt} (y or n)`;
+  return new Promise((resolve) => {
+    let settled = false;
+    const inputBox = vscode.window.createInputBox();
+    inputBox.validationMessage = validationMessage;
+
+    const finish = (accepted: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      activeConfirmation = undefined;
+      inputBox.hide();
+      if (!accepted) {
+        vscode.window.setStatusBarMessage("Abort", 4000);
+      }
+      resolve(accepted);
+    };
+
+    const answer = (value: string) => {
+      const lower = value.toLowerCase();
+      if (lower.includes("y")) {
+        finish(true);
+      } else if (lower.includes("n") || lower.includes("q")) {
+        finish(false);
+      }
+    };
+
+    activeConfirmation = { prompt: validationMessage, answer };
+    const changeSub = inputBox.onDidChangeValue(answer);
+    const hideSub = inputBox.onDidHide(() => {
+      changeSub.dispose();
+      hideSub.dispose();
+      inputBox.dispose();
+      finish(false);
+    });
+
+    inputBox.show();
+  });
 }
 
 /**

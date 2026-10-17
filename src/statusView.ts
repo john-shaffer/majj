@@ -3,7 +3,7 @@ import { stripAnsi, Style, StyledText, StyledTextBuilder } from "./ansi";
 import { getConfig } from "./config";
 import { configGet, JjError, runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
-import { workingCopyFiles } from "./workingCopy";
+import { WorkingCopyFile, workingCopyFiles } from "./workingCopy";
 
 const HEADER: Style = { bold: true };
 const NO_REPO = /There is no jj repo in/;
@@ -20,14 +20,14 @@ export interface Status {
   /** The change shown on each line of the change graph, by line index. */
   changes: Map<number, string>;
   /** The working copy file shown on each line of jj's status, relative to the root. */
-  files: Map<number, string>;
+  files: Map<number, WorkingCopyFile>;
 }
 
 export async function renderStatus(root: string): Promise<Status> {
   const { limit, recentChanges, revset } = getConfig();
   const out = new StyledTextBuilder();
   const changes = new Map<number, string>();
-  let files = new Map<number, string>();
+  let files = new Map<number, WorkingCopyFile>();
   try {
     // `jj status` snapshots the working copy, so the log can skip doing it again.
     const [status, logRevset, logTemplate] = await Promise.all([
@@ -99,7 +99,7 @@ export class StatusView extends View {
   }
 
   private changes = new Map<number, string>();
-  private files = new Map<number, string>();
+  private files = new Map<number, WorkingCopyFile>();
 
   /** The ID of the change shown on a line of the change graph. */
   changeAt(line: number): string | undefined {
@@ -107,7 +107,7 @@ export class StatusView extends View {
   }
 
   /** The working copy file shown on a line, relative to the root. */
-  fileAt(line: number): string | undefined {
+  fileAt(line: number): WorkingCopyFile | undefined {
     return this.files.get(line);
   }
 

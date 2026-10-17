@@ -222,6 +222,36 @@ test("views open in the editor group that isn't active", async () => {
   assert.equal(vscode.window.activeTextEditor?.viewColumn, vscode.ViewColumn.One);
 });
 
+test("discarding a working copy file asks for y/n confirmation and restores it", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
+  fs.writeFileSync(path.join(repo, "discard-me.txt"), "temp\n");
+  await vscode.commands.executeCommand("majj.status");
+  await waitFor("the new file", () => statusText().includes("A discard-me.txt"));
+
+  const editor = vscode.window.activeTextEditor!;
+  const line = editor.document.getText().split("\n").indexOf("A discard-me.txt");
+  editor.selection = new vscode.Selection(line, 0, line, 0);
+
+  // Answering "n" aborts without touching the file.
+  const aborted = vscode.commands.executeCommand("majj.discard");
+  await waitFor("the confirmation prompt", () => api.confirmPrompt() !== undefined);
+  assert.equal(api.confirmPrompt(), "Discard changes to discard-me.txt? (y or n)");
+  api.answerConfirmation("n");
+  await aborted;
+  assert.equal(api.confirmPrompt(), undefined);
+  assert.ok(fs.existsSync(path.join(repo, "discard-me.txt")));
+  assert.ok(statusText().includes("A discard-me.txt"));
+
+  // Answering "y" restores the file and refreshes the status view.
+  const confirmed = vscode.commands.executeCommand("majj.discard");
+  await waitFor("the confirmation prompt", () => api.confirmPrompt() !== undefined);
+  api.answerConfirmation("y");
+  await confirmed;
+  await waitFor("the file to be discarded", () => !statusText().includes("discard-me.txt"));
+  assert.ok(!fs.existsSync(path.join(repo, "discard-me.txt")));
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -236,6 +266,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "Essential commands",
       "  g        refresh current buffer",
       "  RET      visit thing at point",
+      "  k        discard at point",
       "  q        exit / close majj view",
     ].join("\n"),
   );
