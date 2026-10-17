@@ -554,6 +554,12 @@ test("restoring selected working copy changes or a change at point with X runs j
     editor.selection = new vscode.Selection(secondLine, 0, secondLine, 0);
     await vscode.commands.executeCommand("majj.restore");
     await waitFor("Second change to become empty", () => statusText().includes("(empty) Second change"));
+
+    // Undo and redo with ctrl+z (majj.undo) and ctrl+y (majj.redo).
+    await vscode.commands.executeCommand("majj.undo");
+    await waitFor("undo to restore Second change", () => !statusText().includes("(empty) Second change"));
+    await vscode.commands.executeCommand("majj.redo");
+    await waitFor("redo to empty Second change again", () => statusText().includes("(empty) Second change"));
   } finally {
     jj("op", "restore", savedOp);
     await vscode.commands.executeCommand("majj.refresh");
@@ -583,6 +589,8 @@ test("help command opens help.majj with the essential commands", async () => {
       "  s        split selected changes",
       "  S        squash changes",
       "  X        restore changes",
+      "  ctrl+z   undo last operation",
+      "  ctrl+y   redo last undone operation",
       "  q        exit / close majj view",
     ].join("\n"),
   );

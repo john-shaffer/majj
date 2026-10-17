@@ -90,6 +90,11 @@ export async function rebase(cwd: string, source: string, input: string): Promis
   }
 }
 
+/** Redoes the most recently undone operation (`jj redo`). */
+export async function redo(cwd: string): Promise<void> {
+  await runJj(cwd, ["redo"]);
+}
+
 /** Restores the given workspace-relative paths in the working copy from its parent(s). */
 export async function restore(cwd: string, paths: string[]): Promise<void> {
   await runJj(cwd, ["restore", "--", ...paths.map(fileset)]);
@@ -154,6 +159,11 @@ export async function split(cwd: string, selection: SelectedChanges): Promise<vo
 /** Squashes the selected working copy changes (or all working copy changes if none are selected) into `@-` (`jj squash`). */
 export async function squash(cwd: string, selection?: SelectedChanges): Promise<void> {
   await runWithSelection(cwd, ["squash", "--config", 'ui.editor="true"'], selection);
+}
+
+/** Undoes the last operation (`jj undo`). */
+export async function undo(cwd: string): Promise<void> {
+  await runJj(cwd, ["undo"]);
 }
 
 /**

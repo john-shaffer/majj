@@ -41,6 +41,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.redo",
+        "title": "Redo Last Undone Operation",
+        "category": "Majj"
+      },
+      {
         "command": "majj.refresh",
         "title": "Refresh Status",
         "category": "Majj"
@@ -73,6 +78,11 @@
       {
         "command": "majj.toggleSelect",
         "title": "Toggle Selection at Point",
+        "category": "Majj"
+      },
+      {
+        "command": "majj.undo",
+        "title": "Undo Last Operation",
         "category": "Majj"
       },
       {
@@ -169,6 +179,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.redo",
+        "key": "ctrl+y",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.refresh",
         "key": "g",
         "when": "editorTextFocus && editorLangId == majj"
@@ -200,6 +215,11 @@
       {
         "command": "majj.toggleSelect",
         "key": "space",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.undo",
+        "key": "ctrl+z",
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
@@ -243,6 +263,10 @@
           "when": "editorLangId == majj"
         },
         {
+          "command": "majj.redo",
+          "when": "editorLangId == majj"
+        },
+        {
           "command": "majj.refresh",
           "when": "editorLangId == majj"
         },
@@ -264,6 +288,10 @@
         },
         {
           "command": "majj.toggleSelect",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.undo",
           "when": "editorLangId == majj"
         },
         {

@@ -23,6 +23,8 @@ test("default keybindings render the essential commands section", () => {
     "  s        split selected changes",
     "  S        squash changes",
     "  X        restore changes",
+    "  ctrl+z   undo last operation",
+    "  ctrl+y   redo last undone operation",
     "  q        exit / close majj view",
   ]);
   assert.deepEqual(text.spans, [
@@ -37,7 +39,9 @@ test("default keybindings render the essential commands section", () => {
     { line: 8, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 9, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 10, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 11, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 11, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 12, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 13, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
   ]);
 });
 
@@ -64,6 +68,8 @@ test("user keybindings override defaults and widen the key column when needed", 
     "  s           split selected changes",
     "  S           squash changes",
     "  X           restore changes",
+    "  ctrl+z      undo last operation",
+    "  ctrl+y      redo last undone operation",
     "  q           exit / close majj view",
   ]);
 });

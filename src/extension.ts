@@ -6,7 +6,19 @@ import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
-import { edit, findRoot, rebase, restore, restoreChanges, restoreRevision, SelectedChanges, split, squash } from "./jj";
+import {
+  edit,
+  findRoot,
+  rebase,
+  redo,
+  restore,
+  restoreChanges,
+  restoreRevision,
+  SelectedChanges,
+  split,
+  squash,
+  undo,
+} from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
@@ -320,6 +332,34 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const runRedo = async () => {
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    const view = uri && viewFor(uri);
+    if (!view?.root) {
+      return;
+    }
+    try {
+      await redo(view.root);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const runUndo = async () => {
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    const view = uri && viewFor(uri);
+    if (!view?.root) {
+      return;
+    }
+    try {
+      await undo(view.root);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   context.subscriptions.push(
     decorator,
     changed,
@@ -328,6 +368,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.rebase", rebaseChange),
+    vscode.commands.registerCommand("majj.redo", runRedo),
     vscode.commands.registerCommand("majj.refresh", refresh),
     vscode.commands.registerCommand("majj.restore", restoreAtPoint),
     vscode.commands.registerCommand("majj.split", splitSelected),
@@ -335,6 +376,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.status", showStatus),
     vscode.commands.registerCommand("majj.toggleFold", toggleFold),
     vscode.commands.registerCommand("majj.toggleSelect", toggleSelect),
+    vscode.commands.registerCommand("majj.undo", runUndo),
     vscode.commands.registerCommand("majj.visit", visit),
     vscode.workspace.onDidChangeTextDocument((e) => {
       const view = viewFor(e.document.uri);
