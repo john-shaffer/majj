@@ -163,7 +163,44 @@ diff --git a/second b/second
     " c",
     "+d",
   ]);
-  assert.deepEqual(fileLines.get(5), { path: "first", headerLine: 5 });
-  assert.deepEqual(fileLines.get(6), { path: "second", headerLine: 6 });
-  assert.deepEqual(fileLines.get(9), { path: "second", headerLine: 6 });
+  assert.deepEqual(fileLines.get(5), { kind: "file", key: "first", headerLine: 5 });
+  assert.deepEqual(fileLines.get(6), { kind: "file", key: "second", headerLine: 6 });
+  assert.deepEqual(fileLines.get(7), { kind: "chunk", key: "second\n0", headerLine: 7 });
+  assert.deepEqual(fileLines.get(9), { kind: "chunk", key: "second\n0", headerLine: 7 });
+});
+
+test("collapsed chunks keep their @@ header line but hide their body lines", () => {
+  const ansi = `Commit ID: abc
+
+    Describe it
+
+diff --git a/x b/x
+@@ -1,2 +1,3 @@
+ a
++b
+ c
+@@ -10,2 +11,3 @@
+ d
++e
+ f
+`;
+  const out = new StyledTextBuilder();
+  const spans = appendShow(out, ansi, new Set(), new Set(["x\n0"]));
+  assert.deepEqual(out.build().lines, [
+    "Commit ID: abc",
+    "",
+    "    Describe it",
+    "",
+    "Changes    1 file, 2 insertions(+), 0 deletions(-)",
+    "modified   x | 2 ++",
+    "@@ -1,2 +1,3 @@",
+    "@@ -10,2 +11,3 @@",
+    " d",
+    "+e",
+    " f",
+  ]);
+  assert.deepEqual(spans.get(5), { kind: "file", key: "x", headerLine: 5 });
+  assert.deepEqual(spans.get(6), { kind: "chunk", key: "x\n0", headerLine: 6 });
+  assert.deepEqual(spans.get(7), { kind: "chunk", key: "x\n1", headerLine: 7 });
+  assert.deepEqual(spans.get(10), { kind: "chunk", key: "x\n1", headerLine: 7 });
 });

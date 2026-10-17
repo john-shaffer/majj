@@ -252,7 +252,7 @@ test("discarding a working copy file asks for y/n confirmation and restores it",
   assert.ok(!fs.existsSync(path.join(repo, "discard-me.txt")));
 });
 
-test("tab shows and hides changed files in the working copy and in change.majj", async () => {
+test("tab shows and hides changed files and chunks in the working copy and in change.majj", async () => {
   await setConfig("autoRefresh.mode", "off");
   await vscode.commands.executeCommand("majj.status");
   await waitFor("the working copy file", () => statusText().includes("A c.txt"));
@@ -265,13 +265,21 @@ test("tab shows and hides changed files in the working copy and in change.majj",
   await vscode.commands.executeCommand("majj.toggleFold");
   await waitFor("c.txt diff to show", () => statusText().includes("A c.txt\n@@ -0,0 +1,1 @@\n+c"));
 
-  // Collapse c.txt from inside its expanded diff; the cursor returns to the file line.
+  // Collapse the chunk from inside its body; @@ stays visible and the cursor returns to the @@ line.
   statusEditor.selection = new vscode.Selection(fileLine + 2, 0, fileLine + 2, 0);
   await vscode.commands.executeCommand("majj.toggleFold");
-  await waitFor("c.txt diff to hide", () => !statusText().includes("@@ -0,0 +1,1 @@"));
-  assert.equal(statusEditor.selection.active.line, fileLine);
+  await waitFor("c.txt chunk body to hide", () => !statusText().includes("+c"));
+  assert.ok(statusText().includes("A c.txt\n@@ -0,0 +1,1 @@"));
+  assert.equal(statusEditor.selection.active.line, fileLine + 1);
 
-  // Visit a change in the graph and toggle its file diff in change.majj.
+  // Expand the chunk again, then collapse the whole file from its file line.
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("c.txt chunk body to show again", () => statusText().includes("+c"));
+  statusEditor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("c.txt diff to hide", () => !statusText().includes("@@ -0,0 +1,1 @@"));
+
+  // Visit a change in the graph and toggle its chunk and file diff in change.majj.
   const lines = statusEditor.document.getText().split("\n");
   const changeLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"));
   statusEditor.selection = new vscode.Selection(changeLine, 0, changeLine, 0);
@@ -282,6 +290,20 @@ test("tab shows and hides changed files in the working copy and in change.majj",
   assert.equal(changeDoc.uri.path, "change.majj");
   await waitFor("change diff to load", () => changeDoc.getText().includes("+b"));
 
+  // Toggle chunk in change.majj.
+  const chunkLine = changeDoc
+    .getText()
+    .split("\n")
+    .findIndex((l) => l.startsWith("@@ "));
+  changeEditor.selection = new vscode.Selection(chunkLine, 0, chunkLine, 0);
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("b.txt chunk body to hide", () => !changeDoc.getText().includes("+b"));
+  assert.ok(changeDoc.getText().includes("@@ "));
+
+  await vscode.commands.executeCommand("majj.toggleFold");
+  await waitFor("b.txt chunk body to show again", () => changeDoc.getText().includes("+b"));
+
+  // Toggle whole file in change.majj.
   const bLine = changeDoc
     .getText()
     .split("\n")

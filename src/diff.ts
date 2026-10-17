@@ -19,6 +19,13 @@ const DIFF_GIT = /^diff --git /;
 // Extended header lines that the file's label or path stands in for.
 const HIDDEN = /^(index |--- |\+\+\+ |(new|deleted) file mode |(rename|copy) (from|to) |(dis)?similarity index )/;
 
+export interface ChunkDiff {
+  /** The `@@ ... @@` line, with its colors. */
+  header: string;
+  /** The lines of the chunk after its `@@ ... @@` header, with their colors. */
+  lines: string[];
+}
+
 export interface FileDiff {
   label: string;
   path: string;
@@ -26,12 +33,14 @@ export interface FileDiff {
   binary: boolean;
   insertions: number;
   deletions: number;
-  /** The lines after git's headers, with their colors. */
-  lines: string[];
+  /** Non-hunk lines after git's headers (e.g. mode changes or binary notice), with their colors. */
+  headers: string[];
+  chunks: ChunkDiff[];
 }
 
-export interface FileSpan {
-  path: string;
+export interface FoldSpan {
+  kind: "file" | "chunk";
+  key: string;
   headerLine: number;
 }
 
@@ -41,8 +50,9 @@ export function appendShow(
   out: StyledTextBuilder,
   ansi: string,
   collapsedFiles: ReadonlySet<string> = new Set(),
-): Map<number, FileSpan> {
-  const fileSpans = new Map<number, FileSpan>();
+  collapsedChunks: ReadonlySet<string> = new Set(),
+): Map<number, FoldSpan> {
+  const foldSpans = new Map<number, FoldSpan>();
   const lines = ansi.split("\n");
   let diffStart = lines.findIndex((l) => DIFF_GIT.test(stripAnsi(l)));
   if (diffStart < 0) {
@@ -51,7 +61,7 @@ export function appendShow(
   out.appendAnsi(lines.slice(0, diffStart).join("\n"));
   const files = parseFiles(lines.slice(diffStart));
   if (files.length === 0) {
-    return fileSpans;
+    return foldSpans;
   }
   const sum = (f: (file: FileDiff) => number) => files.reduce((n, file) => n + f(file), 0);
   out
@@ -87,22 +97,45 @@ export function appendShow(
         .append("-".repeat(barLength(file.deletions, scale)), REMOVED);
     }
     out.newline();
+    foldSpans.set(headerLine, { kind: "file", key: file.path, headerLine });
     if (!collapsedFiles.has(file.path)) {
-      appendFileDiff(out, file);
-    }
-    for (let l = headerLine; l < out.line; l++) {
-      fileSpans.set(l, { path: file.path, headerLine });
+      appendFileDiff(out, file, headerLine, foldSpans, collapsedChunks);
     }
   }
-  return fileSpans;
+  return foldSpans;
 }
 
-export function appendFileDiff(out: StyledTextBuilder, file: FileDiff) {
-  for (const line of file.lines) {
-    // jj underlines the changed tokens, which on a wholly added or removed
-    // line is the whole line.
-    out.appendAnsi(line, ({ underline, ...style }) => style).newline();
+export function appendFileDiff(
+  out: StyledTextBuilder,
+  file: FileDiff,
+  fileHeaderLine: number,
+  foldSpans: Map<number, FoldSpan>,
+  collapsedChunks: ReadonlySet<string> = new Set(),
+) {
+  for (const line of file.headers) {
+    foldSpans.set(out.line, { kind: "file", key: file.path, headerLine: fileHeaderLine });
+    appendDiffLine(out, line);
   }
+  for (let i = 0; i < file.chunks.length; i++) {
+    const chunk = file.chunks[i];
+    const key = `${file.path}\n${i}`;
+    const chunkHeaderLine = out.line;
+    appendDiffLine(out, chunk.header);
+    if (!collapsedChunks.has(key)) {
+      for (const line of chunk.lines) {
+        appendDiffLine(out, line);
+      }
+    }
+    for (let l = chunkHeaderLine; l < out.line; l++) {
+      foldSpans.set(l, { kind: "chunk", key, headerLine: chunkHeaderLine });
+    }
+  }
+}
+
+function appendDiffLine(out: StyledTextBuilder, line: string) {
+  // jj underlines the changed tokens, which on a wholly added or removed
+  // line is the whole line.
+  out.appendAnsi(line, ({ underline, ...style }) => style).newline();
 }
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
@@ -113,8 +146,8 @@ const barLength = (n: number, scale: number) => (n > 0 ? Math.max(1, Math.round(
 export function parseFiles(lines: string[]): FileDiff[] {
   const files: FileDiff[] = [];
   let file: FileDiff | undefined;
+  let chunk: ChunkDiff | undefined;
   let from: string | undefined;
-  let inHunks = false;
   for (const line of lines) {
     const plain = stripAnsi(line);
     if (DIFF_GIT.test(plain)) {
@@ -124,16 +157,19 @@ export function parseFiles(lines: string[]): FileDiff[] {
         binary: false,
         insertions: 0,
         deletions: 0,
-        lines: [],
+        headers: [],
+        chunks: [],
       };
       files.push(file);
+      chunk = undefined;
       from = undefined;
-      inHunks = false;
     } else if (!file) {
       continue;
-    } else if (inHunks || plain.startsWith("@@")) {
-      inHunks = true;
-      file.lines.push(line);
+    } else if (plain.startsWith("@@")) {
+      chunk = { header: line, lines: [] };
+      file.chunks.push(chunk);
+    } else if (chunk) {
+      chunk.lines.push(line);
       if (plain.startsWith("+")) {
         file.insertions++;
       } else if (plain.startsWith("-")) {
@@ -151,12 +187,13 @@ export function parseFiles(lines: string[]): FileDiff[] {
       file.path = plain.replace(/^\w+ to /, "");
     } else if (!HIDDEN.test(plain)) {
       file.binary ||= plain.startsWith("Binary files ");
-      file.lines.push(line);
+      file.headers.push(line);
     }
   }
   // The diff ends with a newline, which is not a line of the last file.
-  if (file?.lines.at(-1) === "") {
-    file.lines.pop();
+  const lastLines = chunk ? chunk.lines : file?.headers;
+  if (lastLines?.at(-1) === "") {
+    lastLines.pop();
   }
   return files;
 }

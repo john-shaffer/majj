@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { stripAnsi, Style, StyledText, StyledTextBuilder } from "./ansi";
 import { getConfig } from "./config";
-import { appendFileDiff, FileSpan, parseFiles } from "./diff";
+import { appendFileDiff, FoldSpan, parseFiles } from "./diff";
 import { configGet, JjError, runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
 import { WorkingCopyFile, workingCopyFiles } from "./workingCopy";
@@ -22,8 +22,8 @@ export interface Status {
   changes: Map<number, string>;
   /** The working copy file shown on each filename line of jj's status, relative to the root. */
   files: Map<number, WorkingCopyFile>;
-  /** The foldable working copy file section on each line (filename and expanded diff), by line index. */
-  fileSpans: Map<number, FileSpan>;
+  /** The foldable file or chunk section on each line of the working copy changes, by line index. */
+  foldSpans: Map<number, FoldSpan>;
 }
 
 interface StatusData {
@@ -33,11 +33,15 @@ interface StatusData {
   revset: string;
 }
 
-export function formatStatus(data: StatusData, expandedFiles: ReadonlySet<string> = new Set()): Status {
+export function formatStatus(
+  data: StatusData,
+  expandedFiles: ReadonlySet<string> = new Set(),
+  collapsedChunks: ReadonlySet<string> = new Set(),
+): Status {
   const out = new StyledTextBuilder();
   const changes = new Map<number, string>();
   const files = new Map<number, WorkingCopyFile>();
-  const fileSpans = new Map<number, FileSpan>();
+  const foldSpans = new Map<number, FoldSpan>();
   const rawFiles = workingCopyFiles(stripAnsi(data.status));
   const diffs = new Map(parseFiles(data.diff.split("\n")).map((f) => [f.path, f]));
 
@@ -48,12 +52,10 @@ export function formatStatus(data: StatusData, expandedFiles: ReadonlySet<string
     out.appendAnsi(statusLines[i]).newline();
     if (wcFile) {
       files.set(headerLine, wcFile);
+      foldSpans.set(headerLine, { kind: "file", key: wcFile.path, headerLine });
       const fileDiff = diffs.get(wcFile.path);
       if (expandedFiles.has(wcFile.path) && fileDiff) {
-        appendFileDiff(out, fileDiff);
-      }
-      for (let l = headerLine; l < out.line; l++) {
-        fileSpans.set(l, { path: wcFile.path, headerLine });
+        appendFileDiff(out, fileDiff, headerLine, foldSpans, collapsedChunks);
       }
     }
   }
@@ -72,7 +74,7 @@ export function formatStatus(data: StatusData, expandedFiles: ReadonlySet<string
     }
     out.appendAnsi(mark ? line.replace(mark[0], "") : line).newline();
   }
-  return { text: out.build(), changes, files, fileSpans };
+  return { text: out.build(), changes, files, foldSpans };
 }
 
 async function fetchStatusData(root: string): Promise<StatusData> {
@@ -98,9 +100,13 @@ async function fetchStatusData(root: string): Promise<StatusData> {
   return { status, diff, log, revset };
 }
 
-export async function renderStatus(root: string, expandedFiles: ReadonlySet<string> = new Set()): Promise<Status> {
+export async function renderStatus(
+  root: string,
+  expandedFiles: ReadonlySet<string> = new Set(),
+  collapsedChunks: ReadonlySet<string> = new Set(),
+): Promise<Status> {
   try {
-    return formatStatus(await fetchStatusData(root), expandedFiles);
+    return formatStatus(await fetchStatusData(root), expandedFiles, collapsedChunks);
   } catch (e) {
     return errorStatus(root, e);
   }
@@ -119,7 +125,7 @@ function errorStatus(root: string, e: unknown): Status {
     text: out.build(),
     changes: new Map(),
     files: new Map(),
-    fileSpans: new Map(),
+    foldSpans: new Map(),
   };
 }
 
@@ -150,9 +156,10 @@ export class StatusView extends View {
 
   private raw?: StatusData;
   private expandedFiles = new Set<string>();
+  private collapsedChunks = new Set<string>();
   private changes = new Map<number, string>();
   private files = new Map<number, WorkingCopyFile>();
-  private fileSpans = new Map<number, FileSpan>();
+  private foldSpans = new Map<number, FoldSpan>();
 
   /** The ID of the change shown on a line of the change graph. */
   changeAt(line: number): string | undefined {
@@ -165,30 +172,31 @@ export class StatusView extends View {
   }
 
   override toggleFold(line: number): number | undefined {
-    const span = this.fileSpans.get(line);
+    const span = this.foldSpans.get(line);
     if (!span || !this.raw) {
       return undefined;
     }
-    if (this.expandedFiles.has(span.path)) {
-      this.expandedFiles.delete(span.path);
+    const set = span.kind === "file" ? this.expandedFiles : this.collapsedChunks;
+    if (set.has(span.key)) {
+      set.delete(span.key);
     } else {
-      this.expandedFiles.add(span.path);
+      set.add(span.key);
     }
-    this.update(this.applyStatus(formatStatus(this.raw, this.expandedFiles)));
+    this.update(this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks)));
     return span.headerLine;
   }
 
-  private applyStatus({ text, changes, files, fileSpans }: Status): StyledText {
+  private applyStatus({ text, changes, files, foldSpans }: Status): StyledText {
     this.changes = changes;
     this.files = files;
-    this.fileSpans = fileSpans;
+    this.foldSpans = foldSpans;
     return text;
   }
 
   protected async render(): Promise<StyledText> {
     try {
       this.raw = await fetchStatusData(this.root);
-      return this.applyStatus(formatStatus(this.raw, this.expandedFiles));
+      return this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks));
     } catch (e) {
       this.raw = undefined;
       return this.applyStatus(errorStatus(this.root, e));

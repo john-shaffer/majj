@@ -29,9 +29,9 @@ Press `g` in the view to refresh it, `?` to open `help.majj`, `q` to close a
 view, and `enter` on a change in the graph to open `change.majj` with its
 `jj show` output. Like magit's revision buffer, `change.majj` and `help.majj`
 open as preview tabs, which the next one you open replaces. Press `enter` on a
-file under "Working copy changes" to open the file, `tab` to show or hide its
-diff (also in `change.majj`), or `k` to discard its changes after a `y`/`n`
-confirmation.
+file under "Working copy changes" to open the file, `tab` on a file or diff
+chunk to show or hide it (also in `change.majj`), or `k` to discard its
+changes after a `y`/`n` confirmation.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { StyledText, StyledTextBuilder } from "./ansi";
-import { appendShow, FileSpan } from "./diff";
+import { appendShow, FoldSpan } from "./diff";
 import { runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
 
@@ -19,17 +19,19 @@ export class ChangeView extends View {
 
   private rawShow?: string;
   private collapsedFiles = new Set<string>();
-  private fileSpans = new Map<number, FileSpan>();
+  private collapsedChunks = new Set<string>();
+  private foldSpans = new Map<number, FoldSpan>();
 
   override toggleFold(line: number): number | undefined {
-    const span = this.fileSpans.get(line);
+    const span = this.foldSpans.get(line);
     if (!span || this.rawShow === undefined) {
       return undefined;
     }
-    if (this.collapsedFiles.has(span.path)) {
-      this.collapsedFiles.delete(span.path);
+    const set = span.kind === "file" ? this.collapsedFiles : this.collapsedChunks;
+    if (set.has(span.key)) {
+      set.delete(span.key);
     } else {
-      this.collapsedFiles.add(span.path);
+      set.add(span.key);
     }
     this.update(this.renderShow(this.rawShow));
     return span.headerLine;
@@ -37,7 +39,7 @@ export class ChangeView extends View {
 
   private renderShow(ansi: string): StyledText {
     const out = new StyledTextBuilder();
-    this.fileSpans = appendShow(out, ansi, this.collapsedFiles);
+    this.foldSpans = appendShow(out, ansi, this.collapsedFiles, this.collapsedChunks);
     return out.build();
   }
 
@@ -49,7 +51,7 @@ export class ChangeView extends View {
       return this.renderShow(this.rawShow);
     } catch (e) {
       this.rawShow = undefined;
-      this.fileSpans.clear();
+      this.foldSpans.clear();
       const out = new StyledTextBuilder();
       appendError(out, e);
       return out.build();
