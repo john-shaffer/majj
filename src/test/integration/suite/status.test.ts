@@ -518,6 +518,49 @@ test("rebasing a change in status.majj prompts for destination and runs jj rebas
   }
 });
 
+test("restoring selected working copy changes or a change at point with X runs jj restore", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const filePath = path.join(repo, "b.txt");
+  fs.writeFileSync(filePath, "b1\nb2\nb3\n");
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("M b.txt to appear", () => statusText().includes("[ ] M b.txt"));
+
+    const editor = vscode.window.activeTextEditor!;
+    let fileLine = editor.document.getText().split("\n").indexOf("[ ] M b.txt");
+    editor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("b.txt diff to expand", () => statusText().includes("[ ] +b1\n[ ] +b2\n[ ] +b3"));
+
+    // Select +b2 with space and restore it with X (majj.restore).
+    const b2Line = editor.document.getText().split("\n").indexOf("[ ] +b2");
+    editor.selection = new vscode.Selection(b2Line, 0, b2Line, 0);
+    await vscode.commands.executeCommand("majj.toggleSelect");
+    await waitFor("+b2 selected", () => statusText().includes("[●] +b2"));
+    await vscode.commands.executeCommand("majj.restore");
+    await waitFor("+b2 restored", () => !statusText().includes("+b2") && statusText().includes("[ ] +b1\n[ ] +b3"));
+    assert.equal(fs.readFileSync(filePath, "utf8"), "b1\nb3\n");
+
+    // Collapse M b.txt before restoring a change in the graph.
+    fileLine = editor.document.getText().split("\n").indexOf("[ ] M b.txt");
+    editor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("b.txt diff to collapse", () => !statusText().includes("+b1"));
+
+    // Restore a change in the graph (Second change) with X (`jj restore -c`).
+    const lines = editor.document.getText().split("\n");
+    const secondLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"));
+    editor.selection = new vscode.Selection(secondLine, 0, secondLine, 0);
+    await vscode.commands.executeCommand("majj.restore");
+    await waitFor("Second change to become empty", () => statusText().includes("(empty) Second change"));
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("repo restored", () => !statusText().includes("b.txt") && !statusText().includes("(empty) Second"));
+  }
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -539,6 +582,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  r        rebase change at point",
       "  s        split selected changes",
       "  S        squash changes",
+      "  X        restore changes",
       "  q        exit / close majj view",
     ].join("\n"),
   );

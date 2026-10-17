@@ -95,10 +95,20 @@ export async function restore(cwd: string, paths: string[]): Promise<void> {
   await runJj(cwd, ["restore", "--", ...paths.map(fileset)]);
 }
 
+/** Restores the selected working copy changes from `@-` (`jj restore`). */
+export async function restoreChanges(cwd: string, selection: SelectedChanges): Promise<void> {
+  await runWithSelection(cwd, ["restore"], selection);
+}
+
+/** Restores all changes in `revision` as compared to its parents (`jj restore -c`). */
+export async function restoreRevision(cwd: string, revision: string): Promise<void> {
+  await runJj(cwd, ["restore", "-c", revision]);
+}
+
 export interface SelectedChanges {
   /** Workspace-relative paths (including both sides of renames) to include in the operation. */
   paths: string[];
-  /** Workspace-relative file path -> file content containing only the selected changes, for partially selected files. */
+  /** Workspace-relative file path -> target file content for `$right` in partially selected files. */
   partialFiles: Map<string, string>;
 }
 

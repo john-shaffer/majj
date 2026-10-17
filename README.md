@@ -34,8 +34,9 @@ open as preview tabs, which the next one you open replaces. Press `enter` on a
 file under "Working copy changes" to open the file, `tab` on a file or diff
 chunk to show or hide it (also in `change.majj`), `space` on a file, chunk, or
 changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `s` to split the
-selected changes (`jj split`), `S` to squash changes (`jj squash`), or `k` to
-discard a file, chunk, or changed lines after a `y`/`n` confirmation.
+selected changes (`jj split`), `S` to squash changes (`jj squash`), `X` to
+restore changes (`jj restore`), or `k` to discard a file, chunk, or changed
+lines after a `y`/`n` confirmation.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.
@@ -49,6 +50,7 @@ or the second if the first is active, splitting the editor if there's only one. 
 | `majj.help`                          | `?`       | in majj views                |
 | `majj.rebase`                        | `r`       | in the status view           |
 | `majj.refresh`                       | `g`       | in majj views                |
+| `majj.restore`                       | `X`       | in the status view           |
 | `majj.split`                         | `s`       | in the status view           |
 | `majj.squash`                        | `S`       | in the status view           |
 | `majj.status`                        | `alt+x j` | anywhere                     |

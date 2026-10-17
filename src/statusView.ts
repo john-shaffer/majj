@@ -42,6 +42,8 @@ export interface Status {
 export interface SelectedFile {
   wcFile: WorkingCopyFile;
   fileDiff?: FileDiff;
+  /** For a partially selected file (`[◐]`), the changed lines that WERE selected. */
+  selected?: ReadonlyMap<number, ReadonlySet<number>>;
   /** For a partially selected file (`[◐]`), the changed lines that were NOT selected. */
   unselected?: Map<number, Set<number>>;
 }
@@ -374,7 +376,7 @@ export class StatusView extends View {
             }
           }
         }
-        result.push({ wcFile, fileDiff, unselected });
+        result.push({ wcFile, fileDiff, selected: selByChunk, unselected });
       }
     }
     return result;

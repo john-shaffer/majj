@@ -27,6 +27,7 @@ const ESSENTIAL: HelpEntry[] = [
   { command: "majj.rebase", description: "rebase change at point" },
   { command: "majj.split", description: "split selected changes" },
   { command: "majj.squash", description: "squash changes" },
+  { command: "majj.restore", description: "restore changes" },
   { command: "workbench.action.closeActiveEditor", description: "exit / close majj view" },
 ];
 

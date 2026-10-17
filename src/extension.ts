@@ -6,7 +6,7 @@ import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
-import { edit, findRoot, rebase, restore, SelectedChanges, split, squash } from "./jj";
+import { edit, findRoot, rebase, restore, restoreChanges, restoreRevision, SelectedChanges, split, squash } from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
@@ -102,6 +102,14 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const readWorkingCopyFile = async (root: string, relPath: string): Promise<string> => {
+    try {
+      return await fs.readFile(path.join(root, relPath), "utf8");
+    } catch {
+      return "";
+    }
+  };
+
   const discard = async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
@@ -130,12 +138,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       try {
         for (const [fileDiff, chunks] of byFile) {
           const fullPath = path.join(view.root, fileDiff.path);
-          let current = "";
-          try {
-            current = await fs.readFile(fullPath, "utf8");
-          } catch {
-            // File was deleted in the working copy.
-          }
+          const current = await readWorkingCopyFile(view.root, fileDiff.path);
           const updated = discardLines(current, fileDiff, chunks);
           await fs.mkdir(path.dirname(fullPath), { recursive: true });
           await fs.writeFile(fullPath, updated);
@@ -165,24 +168,22 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
-  const buildSelectedChanges = async (view: StatusView): Promise<SelectedChanges | undefined> => {
+  const buildSelectedChanges = async (
+    view: StatusView,
+    mode: "keep" | "discard" = "keep",
+  ): Promise<SelectedChanges | undefined> => {
     const items = view.selectedFiles();
     if (items.length === 0) {
       return undefined;
     }
     const paths: string[] = [];
     const partialFiles = new Map<string, string>();
-    for (const { wcFile, fileDiff, unselected } of items) {
+    for (const { wcFile, fileDiff, selected, unselected } of items) {
       paths.push(...wcFile.restorePaths);
-      if (fileDiff && unselected) {
-        const fullPath = path.join(view.root, wcFile.path);
-        let current = "";
-        try {
-          current = await fs.readFile(fullPath, "utf8");
-        } catch {
-          // File was deleted in the working copy.
-        }
-        partialFiles.set(wcFile.path, discardLines(current, fileDiff, unselected));
+      const toDiscard = mode === "keep" ? unselected : selected;
+      if (fileDiff && toDiscard) {
+        const current = await readWorkingCopyFile(view.root, wcFile.path);
+        partialFiles.set(wcFile.path, discardLines(current, fileDiff, toDiscard));
       }
     }
     return { paths, partialFiles };
@@ -242,6 +243,47 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const restoreAtPoint = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    try {
+      const selected = await buildSelectedChanges(view, "discard");
+      if (selected) {
+        await restoreChanges(view.root, selected);
+        view.clearSelection();
+        await view.refresh();
+        return;
+      }
+      const { start, end, active, isEmpty } = editor.selection;
+      const file = isEmpty ? view.fileAt(active.line) : undefined;
+      if (file) {
+        await restore(view.root, file.restorePaths);
+        await view.refresh();
+        return;
+      }
+      const byFile = view.discardedLinesIn(start.line, end.line);
+      if (byFile.size > 0) {
+        const paths: string[] = [];
+        const partialFiles = new Map<string, string>();
+        for (const [fileDiff, chunks] of byFile) {
+          paths.push(fileDiff.path);
+          const current = await readWorkingCopyFile(view.root, fileDiff.path);
+          partialFiles.set(fileDiff.path, discardLines(current, fileDiff, chunks));
+        }
+        await restoreChanges(view.root, { paths, partialFiles });
+        await view.refresh();
+        return;
+      }
+      await restoreRevision(view.root, view.changeAt(active.line) ?? "@");
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   const showHelp = async () => {
     const active = vscode.window.activeTextEditor?.document.uri;
     const root = active?.scheme === SCHEME ? active.query : ((await resolveRoot()) ?? "");
@@ -287,6 +329,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.rebase", rebaseChange),
     vscode.commands.registerCommand("majj.refresh", refresh),
+    vscode.commands.registerCommand("majj.restore", restoreAtPoint),
     vscode.commands.registerCommand("majj.split", splitSelected),
     vscode.commands.registerCommand("majj.squash", squashSelected),
     vscode.commands.registerCommand("majj.status", showStatus),
