@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { StyledText } from "./ansi";
 import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
+import { HelpView } from "./helpView";
 import { findRoot } from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
@@ -27,8 +28,14 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   const getView = (uri: vscode.Uri) => {
     let view = viewFor(uri);
     if (!view) {
-      const ViewClass = uri.path === ChangeView.path ? ChangeView : StatusView;
-      view = new ViewClass(uri, (v) => changed.fire(v.uri));
+      const notify = (v: View) => changed.fire(v.uri);
+      if (uri.path === ChangeView.path) {
+        view = new ChangeView(uri, notify);
+      } else if (uri.path === HelpView.path) {
+        view = new HelpView(uri, notify, context);
+      } else {
+        view = new StatusView(uri, notify);
+      }
       views.set(uri.toString(), view);
     }
     return view;
@@ -87,6 +94,17 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const showHelp = async () => {
+    const active = vscode.window.activeTextEditor?.document.uri;
+    const root = active?.scheme === SCHEME ? active.query : ((await resolveRoot()) ?? "");
+    const uri = HelpView.uriFor(root);
+    const existing = viewFor(uri);
+    await showView(uri, true);
+    if (existing?.loaded) {
+      await existing.refresh();
+    }
+  };
+
   const refresh = async () => {
     const uri = vscode.window.activeTextEditor?.document.uri;
     await (uri && viewFor(uri))?.refresh();
@@ -96,6 +114,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     decorator,
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
+    vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.status", showStatus),
     vscode.commands.registerCommand("majj.visit", visit),
     vscode.commands.registerCommand("majj.refresh", refresh),

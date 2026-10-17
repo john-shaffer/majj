@@ -3,7 +3,7 @@
 A [Magit](https://magit.vc/)-style interface for [Jujutsu (jj)](https://github.com/jj-vcs/jj) in VS Code,
 in the spirit of [edamagit](https://github.com/kahole/edamagit).
 
-Early days: for now there is a status view and a change view.
+Early days: for now there is a status view, a change view, and a help view.
 
 ## Status view
 
@@ -25,21 +25,24 @@ Changes:
 │  Retry requests rejected for an expired signature
 ```
 
-Press `g` in the view to refresh it, and `enter` on a change in the graph to
-open `change.majj` with its `jj show` output. Like magit's revision buffer, it
-opens as a preview tab, which the next change you visit replaces. Press `enter`
-on a file under "Working copy changes" to open the file.
+Press `g` in the view to refresh it, `?` to open `help.majj`, `q` to close a
+view, and `enter` on a change in the graph to open `change.majj` with its
+`jj show` output. Like magit's revision buffer, `change.majj` and `help.majj`
+open as preview tabs, which the next one you open replaces. Press `enter` on a
+file under "Working copy changes" to open the file.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.
 
 ## Keybindings
 
-| Command        | Default  | When                 |
-| -------------- | -------- | -------------------- |
-| `majj.refresh` | `g`      | in majj views        |
-| `majj.status`  | `alt+x j` | anywhere            |
-| `majj.visit`   | `enter`  | in the status view   |
+| Command                              | Default   | When               |
+| ------------------------------------ | --------- | ------------------ |
+| `majj.help`                          | `?`       | in majj views      |
+| `majj.refresh`                       | `g`       | in majj views      |
+| `majj.status`                        | `alt+x j` | anywhere           |
+| `majj.visit`                         | `enter`   | in the status view |
+| `workbench.action.closeActiveEditor` | `q`       | in majj views      |
 
 Change them in **Preferences: Open Keyboard Shortcuts** (search for "majj"), or in
 `keybindings.json`:

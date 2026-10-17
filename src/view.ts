@@ -26,13 +26,12 @@ export abstract class View implements vscode.Disposable {
   private stale = false;
   private running?: Promise<void>;
   private rerun = false;
-  private autoRefresh: AutoRefresh;
+  private autoRefresh?: AutoRefresh;
 
   constructor(
     readonly uri: vscode.Uri,
     private readonly onDidUpdate: (view: View) => void,
   ) {
-    this.autoRefresh = new AutoRefresh(this.root, () => this.requestRefresh());
     this.configure();
   }
 
@@ -41,6 +40,7 @@ export abstract class View implements vscode.Disposable {
   }
 
   configure() {
+    this.autoRefresh ??= new AutoRefresh(this.root, () => this.requestRefresh());
     const { autoRefreshMode, pollIntervalSeconds } = getConfig();
     this.autoRefresh.start(autoRefreshMode, pollIntervalSeconds);
   }
@@ -87,6 +87,6 @@ export abstract class View implements vscode.Disposable {
   protected abstract render(): Promise<StyledText>;
 
   dispose() {
-    this.autoRefresh.dispose();
+    this.autoRefresh?.dispose();
   }
 }

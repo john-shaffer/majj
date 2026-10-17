@@ -21,6 +21,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "majj.help",
+        "title": "Help",
+        "category": "Majj"
+      },
+      {
         "command": "majj.refresh",
         "title": "Refresh Status",
         "category": "Majj"
@@ -99,6 +104,16 @@
     },
     "keybindings": [
       {
+        "command": "majj.help",
+        "key": "shift+-",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.help",
+        "key": "shift+/",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.refresh",
         "key": "g",
         "when": "editorTextFocus && editorLangId == majj"
@@ -131,6 +146,10 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "majj.help",
+          "when": "editorLangId == majj"
+        },
         {
           "command": "majj.refresh",
           "when": "editorLangId == majj"

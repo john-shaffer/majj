@@ -221,3 +221,22 @@ test("views open in the editor group that isn't active", async () => {
   assert.equal(vscode.window.activeTextEditor?.document.uri.scheme, "majj");
   assert.equal(vscode.window.activeTextEditor?.viewColumn, vscode.ViewColumn.One);
 });
+
+test("help command opens help.majj with the essential commands", async () => {
+  await vscode.commands.executeCommand("majj.status");
+  await vscode.commands.executeCommand("majj.help");
+  const doc = vscode.window.activeTextEditor!.document;
+  assert.equal(doc.uri.scheme, "majj");
+  assert.equal(doc.uri.path, "help.majj");
+  assert.equal(doc.languageId, "majj");
+  await waitFor("help to load", () => doc.getText().includes("Essential commands"));
+  assert.equal(
+    doc.getText(),
+    [
+      "Essential commands",
+      "  g        refresh current buffer",
+      "  RET      visit thing at point",
+      "  q        exit / close majj view",
+    ].join("\n"),
+  );
+});
