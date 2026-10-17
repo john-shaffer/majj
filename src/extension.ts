@@ -6,7 +6,7 @@ import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
-import { findRoot, restore } from "./jj";
+import { edit, findRoot, restore } from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
@@ -147,6 +147,24 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const editChange = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    const change = view.changeAt(editor.selection.active.line);
+    if (!change) {
+      return;
+    }
+    try {
+      await edit(view.root, change);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   const showHelp = async () => {
     const active = vscode.window.activeTextEditor?.document.uri;
     const root = active?.scheme === SCHEME ? active.query : ((await resolveRoot()) ?? "");
@@ -180,11 +198,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.discard", discard),
+    vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.help", showHelp),
+    vscode.commands.registerCommand("majj.refresh", refresh),
     vscode.commands.registerCommand("majj.status", showStatus),
     vscode.commands.registerCommand("majj.toggleFold", toggleFold),
     vscode.commands.registerCommand("majj.visit", visit),
-    vscode.commands.registerCommand("majj.refresh", refresh),
     vscode.workspace.onDidChangeTextDocument((e) => {
       const view = viewFor(e.document.uri);
       if (view) {

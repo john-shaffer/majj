@@ -38,6 +38,11 @@ function fileset(file: string): string {
   return `root-file:"${file.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+/** Makes `revision` the working copy change (`jj edit`). */
+export async function edit(cwd: string, revision: string): Promise<void> {
+  await runJj(cwd, ["edit", revision]);
+}
+
 /** Restores the given workspace-relative paths in the working copy from its parent(s). */
 export async function restore(cwd: string, paths: string[]): Promise<void> {
   await runJj(cwd, ["restore", "--", ...paths.map(fileset)]);

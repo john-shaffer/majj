@@ -52,6 +52,10 @@ export function formatStatus(
   const isCommitLine = (i: number) => /^(Working copy\s+\(|Parent commit\b)/.test(stripAnsi(statusLines[i]));
   for (let i = 0; i < statusLines.length; i++) {
     if (isCommitLine(i)) {
+      const m = /^(?:Working copy\s+\(|Parent commit\b)[^:]*:\s+(\S+)\s+([0-9a-f]+)/.exec(stripAnsi(statusLines[i]));
+      if (m) {
+        changes.set(out.line, /^[k-z]+$/.test(m[1]) ? m[1] : m[2]);
+      }
       out.appendAnsi(statusLines[i]).newline();
     }
   }

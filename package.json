@@ -26,6 +26,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.edit",
+        "title": "Edit Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.help",
         "title": "Help",
         "category": "Majj"
@@ -119,6 +124,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.edit",
+        "key": "e",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.help",
         "key": "shift+-",
         "when": "editorTextFocus && editorLangId == majj"
@@ -168,6 +178,10 @@
       "commandPalette": [
         {
           "command": "majj.discard",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.edit",
           "when": "editorLangId == majj"
         },
         {

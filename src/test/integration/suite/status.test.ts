@@ -364,6 +364,41 @@ test("tab shows and hides changed files and chunks in the working copy and in ch
   await waitFor("b.txt diff to show again", () => changeDoc.getText().includes("+b"));
 });
 
+test("editing a change or commit in status.majj runs jj edit on it", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const original = jj("log", "--no-graph", "-r", "@", "-T", "change_id").trim();
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("Second change in graph", () => statusText().includes("Second change"));
+
+    const editor = vscode.window.activeTextEditor!;
+    const lines = editor.document.getText().split("\n");
+    const secondLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"));
+    editor.selection = new vscode.Selection(secondLine, 0, secondLine, 0);
+    await vscode.commands.executeCommand("majj.edit");
+    await waitFor("working copy to become Second change", () =>
+      /^Working copy\s+\(@\)\s*: .*Second change/m.test(statusText()),
+    );
+    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "description").trim(), "Second change");
+
+    // Edit the parent commit directly from the Parent commit (@-) line at the top of status.majj.
+    const parentLine = editor.document
+      .getText()
+      .split("\n")
+      .findIndex((l) => l.startsWith("Parent commit (@-):"));
+    editor.selection = new vscode.Selection(parentLine, 0, parentLine, 0);
+    await vscode.commands.executeCommand("majj.edit");
+    await waitFor("working copy to become First change", () =>
+      /^Working copy\s+\(@\)\s*: .*First change/m.test(statusText()),
+    );
+    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "description").trim(), "First change");
+  } finally {
+    jj("edit", original);
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("working copy restored", () => statusText().includes("A c.txt"));
+  }
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -379,6 +414,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  g        refresh current buffer",
       "  TAB      toggle section at point",
       "  RET      visit thing at point",
+      "  e        edit change at point",
       "  k        discard at point",
       "  q        exit / close majj view",
     ].join("\n"),
