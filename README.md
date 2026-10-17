@@ -13,10 +13,11 @@ the view says so and how to create one. It shows `jj status`
 followed by the change graph from `jj log`, with jj's own colors:
 
 ```
-Working copy changes:
-A c.txt
 Working copy  (@) : kmsumtwq ffd642af (no description set)
 Parent commit (@-): rlprsrnn 36f55765 master | Retry requests rejected for an expired signature
+
+Working copy changes:
+A c.txt
 
 Changes:
 @  kmsumtwq jdsha@pm.me 2026-10-14 12:29:28 ffd642af

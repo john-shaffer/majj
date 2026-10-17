@@ -46,7 +46,17 @@ export function formatStatus(
   const diffs = new Map(parseFiles(data.diff.split("\n")).map((f) => [f.path, f]));
 
   const statusLines = data.status.trimEnd().split("\n");
+  const isCommitLine = (i: number) => /^(Working copy\s+\(|Parent commit\b)/.test(stripAnsi(statusLines[i]));
   for (let i = 0; i < statusLines.length; i++) {
+    if (isCommitLine(i)) {
+      out.appendAnsi(statusLines[i]).newline();
+    }
+  }
+  out.separate();
+  for (let i = 0; i < statusLines.length; i++) {
+    if (isCommitLine(i)) {
+      continue;
+    }
     const wcFile = rawFiles.get(i);
     const headerLine = out.line;
     out.appendAnsi(statusLines[i]).newline();

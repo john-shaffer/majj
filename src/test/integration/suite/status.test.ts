@@ -46,8 +46,12 @@ test("status command opens the status view", async () => {
 
   const text = statusText();
   const workingCopy = jj("log", "--no-graph", "-r", "@", "-T", "change_id.shortest(8)");
-  assert.match(text, /Working copy changes:\nA c\.txt/);
-  assert.match(text, new RegExp(`Working copy\\s+\\(@\\)\\s*: ${workingCopy}`));
+  assert.match(
+    text,
+    new RegExp(
+      `^Working copy\\s+\\(@\\)\\s*: ${workingCopy}[\\s\\S]*\\nParent commit \\(@-\\): .*\\n\\nWorking copy changes:\\nA c\\.txt\\n\\nChanges:`,
+    ),
+  );
   assert.match(text, new RegExp(`^@  ${workingCopy} `, "m"));
   for (const description of ["First change", "Second change", "Sibling change", "Descendant change"]) {
     assert.ok(text.includes(description), `missing "${description}"`);
