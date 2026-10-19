@@ -134,138 +134,99 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
-  const abandonChange = async () => {
+  /**
+   * A command on the status view in the active editor. The view is refreshed
+   * after `run` unless it returns false, and errors are shown to the user.
+   */
+  const statusCommand = (run: (view: StatusView, editor: vscode.TextEditor) => Promise<boolean | void>) => async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
     if (!editor || !(view instanceof StatusView)) {
       return;
     }
-    const change = view.changeAt(editor.selection.active.line);
+    try {
+      if ((await run(view, editor)) !== false) {
+        await view.refresh();
+      }
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  /** The change on the line at point, if any. */
+  const changeAtPoint = (view: StatusView, editor: vscode.TextEditor) => view.changeAt(editor.selection.active.line);
+
+  const abandonChange = statusCommand(async (view, editor) => {
+    const change = changeAtPoint(view, editor);
     if (!change) {
-      return;
+      return false;
     }
-    try {
-      await abandon(view.root, change);
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+    await abandon(view.root, change);
+  });
 
-  const absorbAtPoint = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
-    }
-    try {
-      await absorb(view.root, view.changeAt(editor.selection.active.line) ?? "@");
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+  const absorbAtPoint = statusCommand((view, editor) => absorb(view.root, changeAtPoint(view, editor) ?? "@"));
 
-  const commitWorkingCopy = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
+  const commitWorkingCopy = statusCommand(async (view) => {
+    const selection = await buildSelectedChanges(view);
+    if ((await description(view.root, "@")).trim()) {
+      await commit(view.root, selection);
+    } else if (!(await withSelection(selection, (args) => descriptionEditor.run(view.root, ["commit", ...args])))) {
+      vscode.window.setStatusBarMessage("Commit canceled.", 4000);
+      return false;
     }
-    try {
-      const selection = await buildSelectedChanges(view);
-      if ((await description(view.root, "@")).trim()) {
-        await commit(view.root, selection);
-      } else if (!(await withSelection(selection, (args) => descriptionEditor.run(view.root, ["commit", ...args])))) {
-        vscode.window.setStatusBarMessage("Commit canceled.", 4000);
-        return;
-      }
-      view.clearSelection();
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+    view.clearSelection();
+  });
 
-  const describeAtPoint = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
+  const describeAtPoint = statusCommand(async (view, editor) => {
+    const revision = changeAtPoint(view, editor) ?? "@";
+    // Unlike for a commit, clearing a description on purpose is a reasonable edit.
+    if (!(await descriptionEditor.run(view.root, ["describe", revision], { allowEmpty: true }))) {
+      vscode.window.setStatusBarMessage("Describe canceled.", 4000);
+      return false;
     }
-    const revision = view.changeAt(editor.selection.active.line) ?? "@";
-    try {
-      // Unlike for a commit, clearing a description on purpose is a reasonable edit.
-      if (!(await descriptionEditor.run(view.root, ["describe", revision], { allowEmpty: true }))) {
-        vscode.window.setStatusBarMessage("Describe canceled.", 4000);
-        return;
-      }
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+  });
 
   // Discards working copy changes at point, or abandons the change at point.
   // jj undo can reverse either, so unlike with git there's no confirmation.
-  const discard = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
-    }
+  const discard = statusCommand(async (view, editor) => {
     const { start, end, active, isEmpty } = editor.selection;
     const file = isEmpty ? view.fileAt(active.line) : undefined;
-    try {
-      if (file) {
-        await restore(view.root, file.restorePaths);
-        await view.refresh();
-        return;
-      }
-      const byFile = view.discardedLinesIn(start.line, end.line);
-      if (byFile.size === 0) {
-        if (isEmpty) {
-          await abandonChange();
-        }
-        return;
-      }
-      // Snapshots on both sides make the edit its own jj operation, which jj undo can undo.
-      await snapshot(view.root);
-      for (const [fileDiff, chunks] of byFile) {
-        if (fileDiff.symlink) {
-          await restore(view.root, diffPaths(fileDiff));
-          continue;
-        }
-        const fullPath = await workingCopyPath(view.root, fileDiff.path);
-        const current = await readWorkingCopyFile(view.root, fileDiff.path);
-        const updated = discardLines(current, fileDiff, chunks);
-        await fs.mkdir(path.dirname(fullPath), { recursive: true });
-        await fs.writeFile(fullPath, updated);
-      }
-      await snapshot(view.root);
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    if (file) {
+      await restore(view.root, file.restorePaths);
+      return;
     }
-  };
+    const byFile = view.discardedLinesIn(start.line, end.line);
+    if (byFile.size === 0) {
+      const change = isEmpty ? changeAtPoint(view, editor) : undefined;
+      if (!change) {
+        return false;
+      }
+      await abandon(view.root, change);
+      return;
+    }
+    // Snapshots on both sides make the edit its own jj operation, which jj undo can undo.
+    await snapshot(view.root);
+    for (const [fileDiff, chunks] of byFile) {
+      if (fileDiff.symlink) {
+        await restore(view.root, diffPaths(fileDiff));
+        continue;
+      }
+      const fullPath = await workingCopyPath(view.root, fileDiff.path);
+      const current = await readWorkingCopyFile(view.root, fileDiff.path);
+      const updated = discardLines(current, fileDiff, chunks);
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, updated);
+    }
+    await snapshot(view.root);
+  });
 
-  const editChange = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
-    }
-    const change = view.changeAt(editor.selection.active.line);
+  const editChange = statusCommand(async (view, editor) => {
+    const change = changeAtPoint(view, editor);
     if (!change) {
-      return;
+      return false;
     }
-    try {
-      await edit(view.root, change);
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+    await edit(view.root, change);
+  });
 
   const buildSelectedChanges = async (
     view: StatusView,
@@ -289,118 +250,62 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     return { paths, partialFiles };
   };
 
-  const splitSelected = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
+  const splitSelected = statusCommand(async (view) => {
+    const selection = await buildSelectedChanges(view);
+    if (!selection) {
+      return false;
     }
-    try {
-      const selection = await buildSelectedChanges(view);
-      if (!selection) {
-        return;
-      }
-      await split(view.root, selection);
-      view.clearSelection();
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+    await split(view.root, selection);
+    view.clearSelection();
+  });
 
-  const squashSelected = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
-    }
-    try {
-      const selection = await buildSelectedChanges(view);
-      await squash(view.root, selection);
-      view.clearSelection();
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+  const squashSelected = statusCommand(async (view) => {
+    await squash(view.root, await buildSelectedChanges(view));
+    view.clearSelection();
+  });
 
-  const newOnChange = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
-    }
-    try {
-      await newChange(view.root, view.changeAt(editor.selection.active.line) ?? "@");
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+  const newOnChange = statusCommand((view, editor) => newChange(view.root, changeAtPoint(view, editor) ?? "@"));
 
-  const rebaseChange = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
-      return;
-    }
-    const source = view.changeAt(editor.selection.active.line) ?? "@";
+  const rebaseChange = statusCommand(async (view, editor) => {
+    const source = changeAtPoint(view, editor) ?? "@";
     const dest = await promptInput(`Rebase ${source} onto`);
     if (!dest) {
-      return;
+      return false;
     }
-    try {
-      await rebase(view.root, source, dest);
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-    }
-  };
+    await rebase(view.root, source, dest);
+  });
 
-  const restoreAtPoint = async () => {
-    const editor = vscode.window.activeTextEditor;
-    const view = editor && viewFor(editor.document.uri);
-    if (!editor || !(view instanceof StatusView)) {
+  const restoreAtPoint = statusCommand(async (view, editor) => {
+    const selected = await buildSelectedChanges(view, "discard");
+    if (selected) {
+      await restoreChanges(view.root, selected);
+      view.clearSelection();
       return;
     }
-    try {
-      const selected = await buildSelectedChanges(view, "discard");
-      if (selected) {
-        await restoreChanges(view.root, selected);
-        view.clearSelection();
-        await view.refresh();
-        return;
-      }
-      const { start, end, active, isEmpty } = editor.selection;
-      const file = isEmpty ? view.fileAt(active.line) : undefined;
-      if (file) {
-        await restore(view.root, file.restorePaths);
-        await view.refresh();
-        return;
-      }
-      const byFile = view.discardedLinesIn(start.line, end.line);
-      if (byFile.size > 0) {
-        const paths: string[] = [];
-        const partialFiles = new Map<string, string>();
-        for (const [fileDiff, chunks] of byFile) {
-          if (fileDiff.symlink) {
-            paths.push(...diffPaths(fileDiff));
-            continue;
-          }
-          paths.push(fileDiff.path);
-          const current = await readWorkingCopyFile(view.root, fileDiff.path);
-          partialFiles.set(fileDiff.path, discardLines(current, fileDiff, chunks));
-        }
-        await restoreChanges(view.root, { paths, partialFiles });
-        await view.refresh();
-        return;
-      }
-      await restoreRevision(view.root, view.changeAt(active.line) ?? "@");
-      await view.refresh();
-    } catch (e) {
-      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    const { start, end, active, isEmpty } = editor.selection;
+    const file = isEmpty ? view.fileAt(active.line) : undefined;
+    if (file) {
+      await restore(view.root, file.restorePaths);
+      return;
     }
-  };
+    const byFile = view.discardedLinesIn(start.line, end.line);
+    if (byFile.size > 0) {
+      const paths: string[] = [];
+      const partialFiles = new Map<string, string>();
+      for (const [fileDiff, chunks] of byFile) {
+        if (fileDiff.symlink) {
+          paths.push(...diffPaths(fileDiff));
+          continue;
+        }
+        paths.push(fileDiff.path);
+        const current = await readWorkingCopyFile(view.root, fileDiff.path);
+        partialFiles.set(fileDiff.path, discardLines(current, fileDiff, chunks));
+      }
+      await restoreChanges(view.root, { paths, partialFiles });
+      return;
+    }
+    await restoreRevision(view.root, changeAtPoint(view, editor) ?? "@");
+  });
 
   const showHelp = async () => {
     const active = vscode.window.activeTextEditor?.document.uri;
