@@ -31,6 +31,8 @@ export interface FileDiff {
   path: string;
   from?: string;
   binary: boolean;
+  /** Whether either side is a symlink, whose "content" is its target path. */
+  symlink: boolean;
   insertions: number;
   deletions: number;
   /** Non-hunk lines after git's headers (e.g. mode changes or binary notice), with their colors. */
@@ -52,6 +54,9 @@ export interface DiffLine {
   /** True when this line is an added (`+`) or removed (`-`) line. */
   changed: boolean;
 }
+
+// Git's mode for symlinks, in "new file mode", "old mode", "index" and similar header lines.
+const SYMLINK_MODE = /^(new file mode|deleted file mode|old mode|new mode|index \S+) 120000$/;
 
 const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
 
@@ -277,11 +282,15 @@ export function parseFiles(lines: string[]): FileDiff[] {
   let from: string | undefined;
   for (const line of lines) {
     const plain = stripAnsi(line);
+    if (file && !chunk && SYMLINK_MODE.test(plain)) {
+      file.symlink = true;
+    }
     if (DIFF_GIT.test(plain)) {
       file = {
         label: "modified",
         path: gitHeaderPath(plain.slice("diff --git ".length)),
         binary: false,
+        symlink: false,
         insertions: 0,
         deletions: 0,
         headers: [],

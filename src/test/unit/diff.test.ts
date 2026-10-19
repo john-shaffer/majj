@@ -212,6 +212,44 @@ diff --git a/x b/x
   assert.deepEqual(spans.get(10), { kind: "chunk", key: "x\n1", headerLine: 7 });
 });
 
+test("symlinks are recognized by their git file mode", () => {
+  const files = parseFiles(
+    `diff --git a/new-link b/new-link
+new file mode 120000
+index 0000000000..48980ad58d
+--- /dev/null
++++ b/new-link
+@@ -0,0 +1,1 @@
++/etc/hostname
+\\ No newline at end of file
+diff --git a/changed-link b/changed-link
+index 1111111111..2222222222 120000
+--- a/changed-link
++++ b/changed-link
+@@ -1,1 +1,1 @@
+-a
+\\ No newline at end of file
++b
+\\ No newline at end of file
+diff --git a/file b/file
+index 1111111111..2222222222 100644
+--- a/file
++++ b/file
+@@ -1,1 +1,1 @@
+-a
++b
+`.split("\n"),
+  );
+  assert.deepEqual(
+    files.map((f) => [f.path, f.symlink]),
+    [
+      ["new-link", true],
+      ["changed-link", true],
+      ["file", false],
+    ],
+  );
+});
+
 test("discardLines discards individual added or removed lines and selections of changed lines", () => {
   const [file] = parseFiles(
     `diff --git a/x b/x

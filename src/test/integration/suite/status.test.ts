@@ -299,6 +299,44 @@ test("discarding individual changed lines and selections of changed lines revert
   }
 });
 
+test("discarding or restoring changed lines of a symlink restores the link without touching its target", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
+  const target = path.join(repo, "..", "outside.txt");
+  const link = path.join(repo, "link");
+  fs.writeFileSync(target, "outside\n");
+  const discardLinkLine = async (command: string) => {
+    fs.symlinkSync(target, link);
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("A link to appear", () => statusText().includes("[ ] A link"));
+    const editor = vscode.window.activeTextEditor!;
+    const fileLine = editor.document.getText().split("\n").indexOf("[ ] A link");
+    editor.selection = new vscode.Selection(fileLine, 0, fileLine, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("link diff to expand", () => statusText().includes(`[ ] +${target}`));
+    const targetLine = editor.document.getText().split("\n").indexOf(`[ ] +${target}`);
+    editor.selection = new vscode.Selection(targetLine, 0, targetLine, 0);
+    const running = vscode.commands.executeCommand(command);
+    if (command === "majj.discard") {
+      await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
+      api.answerConfirmation("y");
+    }
+    await running;
+    await waitFor("link to be restored", () => !statusText().includes("A link"));
+    assert.ok(!fs.existsSync(link));
+    assert.equal(fs.readFileSync(target, "utf8"), "outside\n");
+  };
+  try {
+    await discardLinkLine("majj.discard");
+    await discardLinkLine("majj.restore");
+  } finally {
+    fs.rmSync(link, { force: true });
+    fs.rmSync(target, { force: true });
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("link removed", () => !statusText().includes("link"));
+  }
+});
+
 test("tab shows and hides changed files and chunks in the working copy and in change.majj", async () => {
   await setConfig("autoRefresh.mode", "off");
   await vscode.commands.executeCommand("majj.status");

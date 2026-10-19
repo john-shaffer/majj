@@ -5,7 +5,7 @@ import { StyledText } from "./ansi";
 import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
 import { DescriptionEditor } from "./descriptionEditor";
-import { discardLines } from "./diff";
+import { discardLines, FileDiff } from "./diff";
 import { HelpView } from "./helpView";
 import {
   abandon,
@@ -121,9 +121,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
 
   const readWorkingCopyFile = async (root: string, relPath: string): Promise<string> => {
     try {
-      return await fs.readFile(path.join(root, relPath), "utf8");
-    } catch {
-      return "";
+      return await fs.readFile(await workingCopyPath(root, relPath), "utf8");
+    } catch (e) {
+      if (isNotFound(e)) {
+        return "";
+      }
+      throw e;
     }
   };
 
@@ -191,7 +194,11 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     if (await confirm(`Discard selected changes to ${names}?`)) {
       try {
         for (const [fileDiff, chunks] of byFile) {
-          const fullPath = path.join(view.root, fileDiff.path);
+          if (fileDiff.symlink) {
+            await restore(view.root, diffPaths(fileDiff));
+            continue;
+          }
+          const fullPath = await workingCopyPath(view.root, fileDiff.path);
           const current = await readWorkingCopyFile(view.root, fileDiff.path);
           const updated = discardLines(current, fileDiff, chunks);
           await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -235,7 +242,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     for (const { wcFile, fileDiff, selected, unselected } of items) {
       paths.push(...wcFile.restorePaths);
       const toDiscard = mode === "keep" ? unselected : selected;
-      if (fileDiff && toDiscard) {
+      // A symlink's only "lines" are its target, so it goes in whole.
+      if (fileDiff && toDiscard && !fileDiff.symlink) {
         const current = await readWorkingCopyFile(view.root, wcFile.path);
         partialFiles.set(wcFile.path, discardLines(current, fileDiff, toDiscard));
       }
@@ -323,6 +331,10 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
         const paths: string[] = [];
         const partialFiles = new Map<string, string>();
         for (const [fileDiff, chunks] of byFile) {
+          if (fileDiff.symlink) {
+            paths.push(...diffPaths(fileDiff));
+            continue;
+          }
           paths.push(fileDiff.path);
           const current = await readWorkingCopyFile(view.root, fileDiff.path);
           partialFiles.set(fileDiff.path, discardLines(current, fileDiff, chunks));
@@ -533,6 +545,42 @@ function promptInput(prompt: string): Promise<string | undefined> {
 
     inputBox.show();
   });
+}
+
+/** Both paths of a renamed or copied file, or else its one path. */
+function diffPaths(fileDiff: FileDiff): string[] {
+  return fileDiff.from ? [fileDiff.from, fileDiff.path] : [fileDiff.path];
+}
+
+function isNotFound(e: unknown): boolean {
+  const code = (e as NodeJS.ErrnoException)?.code;
+  return code === "ENOENT" || code === "ENOTDIR";
+}
+
+/**
+ * The full path of a working copy file to read or write its lines. Refuses
+ * a path that is or goes through a symlink, which could point outside the
+ * workspace.
+ */
+async function workingCopyPath(root: string, relPath: string): Promise<string> {
+  const fullPath = path.join(root, relPath);
+  let current = root;
+  for (const part of relPath.split(/[\\/]/)) {
+    current = path.join(current, part);
+    let stats;
+    try {
+      stats = await fs.lstat(current);
+    } catch (e) {
+      if (isNotFound(e)) {
+        break;
+      }
+      throw e;
+    }
+    if (stats.isSymbolicLink()) {
+      throw new Error(`${relPath} is a symlink or inside one`);
+    }
+  }
+  return fullPath;
 }
 
 /**
