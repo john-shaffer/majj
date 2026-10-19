@@ -12,10 +12,15 @@ export class JjError extends Error {
   }
 }
 
-export function runJj(cwd: string, args: string[], { color = false } = {}): Promise<string> {
+export function runJj(
+  cwd: string,
+  args: string[],
+  { color = false, env = {} }: { color?: boolean; env?: NodeJS.ProcessEnv } = {},
+): Promise<string> {
   const fullArgs = ["--no-pager", "--color", color ? "always" : "never", ...args];
+  const options = { cwd, env: { ...process.env, ...env }, maxBuffer: 64 * 1024 * 1024 };
   return new Promise((resolve, reject) => {
-    execFile(getConfig().jjPath, fullArgs, { cwd, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
+    execFile(getConfig().jjPath, fullArgs, options, (error, stdout, stderr) => {
       if (error) {
         reject(new JjError(stderr.trim() || error.message));
       } else {
