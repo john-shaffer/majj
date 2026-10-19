@@ -138,7 +138,8 @@
         "majj.jjPath": {
           "type": "string",
           "default": "jj",
-          "description": "Path to the jj executable."
+          "description": "Path to the jj executable.",
+          "scope": "machine"
         },
         "majj.status.limit": {
           "type": "integer",
