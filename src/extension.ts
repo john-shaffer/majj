@@ -34,9 +34,9 @@ const views = new Map<string, View>();
 let activeConfirmation: { prompt: string; answer: (input: string) => void } | undefined;
 
 export interface MajjApi {
-  /** Sends keyboard input to the open y/n confirmation prompt. Used by tests. */
+  /** Sends keyboard input to the open input prompt. Used by tests. */
   answerConfirmation(input: string): void;
-  /** The validation message of the open y/n confirmation prompt, if any. Used by tests. */
+  /** The text of the open input prompt, if any. Used by tests. */
   confirmPrompt(): string | undefined;
   /** The rendered status for a workspace root, if a status view for it is open. Used by tests. */
   getStatus(root: string): StyledText | undefined;
@@ -171,6 +171,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  // jj undo can reverse a discard, so unlike with git there's no confirmation.
   const discard = async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
@@ -179,42 +180,33 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
     const { start, end, active, isEmpty } = editor.selection;
     const file = isEmpty ? view.fileAt(active.line) : undefined;
-    if (file) {
-      if (await confirm(`Discard changes to ${file.path}?`)) {
-        try {
-          await restore(view.root, file.restorePaths);
-          await view.refresh();
-        } catch (e) {
-          void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
-        }
-      }
-      return;
-    }
-    const byFile = view.discardedLinesIn(start.line, end.line);
-    if (byFile.size === 0) {
-      return;
-    }
-    const names = [...byFile.keys()].map((f) => f.path).join(", ");
-    if (await confirm(`Discard selected changes to ${names}?`)) {
-      try {
-        // Snapshots on both sides make the edit its own jj operation, which jj undo can undo.
-        await snapshot(view.root);
-        for (const [fileDiff, chunks] of byFile) {
-          if (fileDiff.symlink) {
-            await restore(view.root, diffPaths(fileDiff));
-            continue;
-          }
-          const fullPath = await workingCopyPath(view.root, fileDiff.path);
-          const current = await readWorkingCopyFile(view.root, fileDiff.path);
-          const updated = discardLines(current, fileDiff, chunks);
-          await fs.mkdir(path.dirname(fullPath), { recursive: true });
-          await fs.writeFile(fullPath, updated);
-        }
-        await snapshot(view.root);
+    try {
+      if (file) {
+        await restore(view.root, file.restorePaths);
         await view.refresh();
-      } catch (e) {
-        void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+        return;
       }
+      const byFile = view.discardedLinesIn(start.line, end.line);
+      if (byFile.size === 0) {
+        return;
+      }
+      // Snapshots on both sides make the edit its own jj operation, which jj undo can undo.
+      await snapshot(view.root);
+      for (const [fileDiff, chunks] of byFile) {
+        if (fileDiff.symlink) {
+          await restore(view.root, diffPaths(fileDiff));
+          continue;
+        }
+        const fullPath = await workingCopyPath(view.root, fileDiff.path);
+        const current = await readWorkingCopyFile(view.root, fileDiff.path);
+        const updated = discardLines(current, fileDiff, chunks);
+        await fs.mkdir(path.dirname(fullPath), { recursive: true });
+        await fs.writeFile(fullPath, updated);
+      }
+      await snapshot(view.root);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
     }
   };
 
@@ -481,48 +473,6 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     confirmPrompt: () => activeConfirmation?.prompt,
     getStatus: (root) => viewFor(StatusView.uriFor(root))?.content,
   };
-}
-
-function confirm(prompt: string): Promise<boolean> {
-  const validationMessage = `${prompt} (y or n)`;
-  return new Promise((resolve) => {
-    let settled = false;
-    const inputBox = vscode.window.createInputBox();
-    inputBox.validationMessage = validationMessage;
-
-    const finish = (accepted: boolean) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      activeConfirmation = undefined;
-      inputBox.hide();
-      if (!accepted) {
-        vscode.window.setStatusBarMessage("Abort", 4000);
-      }
-      resolve(accepted);
-    };
-
-    const answer = (value: string) => {
-      const lower = value.toLowerCase();
-      if (lower.includes("y")) {
-        finish(true);
-      } else if (lower.includes("n") || lower.includes("q")) {
-        finish(false);
-      }
-    };
-
-    activeConfirmation = { prompt: validationMessage, answer };
-    const changeSub = inputBox.onDidChangeValue(answer);
-    const hideSub = inputBox.onDidHide(() => {
-      changeSub.dispose();
-      hideSub.dispose();
-      inputBox.dispose();
-      finish(false);
-    });
-
-    inputBox.show();
-  });
 }
 
 function promptInput(prompt: string): Promise<string | undefined> {

@@ -226,39 +226,36 @@ test("views open in the editor group that isn't active", async () => {
   assert.equal(vscode.window.activeTextEditor?.viewColumn, vscode.ViewColumn.One);
 });
 
-test("discarding a working copy file asks for y/n confirmation and restores it", async () => {
+test("discarding a working copy file restores it without asking, and jj undo brings it back", async () => {
   await setConfig("autoRefresh.mode", "off");
   const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
-  fs.writeFileSync(path.join(repo, "discard-me.txt"), "temp\n");
+  const filePath = path.join(repo, "discard-me.txt");
+  fs.writeFileSync(filePath, "temp\n");
   await vscode.commands.executeCommand("majj.status");
   await waitFor("the new file", () => statusText().includes("A discard-me.txt"));
 
   const editor = vscode.window.activeTextEditor!;
-  const line = editor.document.getText().split("\n").indexOf("[ ] A discard-me.txt");
-  editor.selection = new vscode.Selection(line, 0, line, 0);
+  const discardFile = async () => {
+    const line = editor.document.getText().split("\n").indexOf("[ ] A discard-me.txt");
+    editor.selection = new vscode.Selection(line, 0, line, 0);
+    await vscode.commands.executeCommand("majj.discard");
+    assert.equal(api.confirmPrompt(), undefined);
+    await waitFor("the file to be discarded", () => !statusText().includes("discard-me.txt"));
+    assert.ok(!fs.existsSync(filePath));
+  };
+  await discardFile();
 
-  // Answering "n" aborts without touching the file.
-  const aborted = vscode.commands.executeCommand("majj.discard");
-  await waitFor("the confirmation prompt", () => api.confirmPrompt() !== undefined);
-  assert.equal(api.confirmPrompt(), "Discard changes to discard-me.txt? (y or n)");
-  api.answerConfirmation("n");
-  await aborted;
-  assert.equal(api.confirmPrompt(), undefined);
-  assert.ok(fs.existsSync(path.join(repo, "discard-me.txt")));
-  assert.ok(statusText().includes("A discard-me.txt"));
-
-  // Answering "y" restores the file and refreshes the status view.
-  const confirmed = vscode.commands.executeCommand("majj.discard");
-  await waitFor("the confirmation prompt", () => api.confirmPrompt() !== undefined);
-  api.answerConfirmation("y");
-  await confirmed;
-  await waitFor("the file to be discarded", () => !statusText().includes("discard-me.txt"));
-  assert.ok(!fs.existsSync(path.join(repo, "discard-me.txt")));
+  await vscode.commands.executeCommand("majj.undo");
+  assert.equal(fs.readFileSync(filePath, "utf8"), "temp\n");
+  await waitFor("the file to come back", () => statusText().includes("[ ] A discard-me.txt"));
+  // Redoing the same restore within the second would recreate the undone
+  // commit exactly, which jj rejects as "Newly-created commit already exists".
+  await sleep(1100);
+  await discardFile();
 });
 
 test("discarding individual changed lines and selections of changed lines reverts only those lines", async () => {
   await setConfig("autoRefresh.mode", "off");
-  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
   const filePath = path.join(repo, "b.txt");
   fs.writeFileSync(filePath, "b1\nb2\nb3\n");
   try {
@@ -274,10 +271,7 @@ test("discarding individual changed lines and selections of changed lines revert
     // Discard a single changed line (+b2).
     const b2Line = editor.document.getText().split("\n").indexOf("[ ] +b2");
     editor.selection = new vscode.Selection(b2Line, 0, b2Line, 0);
-    const discardOne = vscode.commands.executeCommand("majj.discard");
-    await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
-    api.answerConfirmation("y");
-    await discardOne;
+    await vscode.commands.executeCommand("majj.discard");
     await waitFor("b2 to be removed", () => !statusText().includes("+b2") && statusText().includes("+b1"));
     assert.equal(fs.readFileSync(filePath, "utf8"), "b1\nb3\n");
 
@@ -293,10 +287,7 @@ test("discarding individual changed lines and selections of changed lines revert
     const minusB = lines.indexOf("[ ] -b");
     const plusB1 = lines.indexOf("[ ] +b1");
     editor.selection = new vscode.Selection(minusB, 0, plusB1, 0);
-    const discardSelection = vscode.commands.executeCommand("majj.discard");
-    await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
-    api.answerConfirmation("y");
-    await discardSelection;
+    await vscode.commands.executeCommand("majj.discard");
     await waitFor("b restored and b1 removed", () => !statusText().includes("+b1") && statusText().includes("+b3"));
     assert.equal(fs.readFileSync(filePath, "utf8"), "b\nb3\n");
   } finally {
@@ -308,7 +299,6 @@ test("discarding individual changed lines and selections of changed lines revert
 
 test("discarding or restoring changed lines of a symlink restores the link without touching its target", async () => {
   await setConfig("autoRefresh.mode", "off");
-  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
   const target = path.join(repo, "..", "outside.txt");
   const link = path.join(repo, "link");
   fs.writeFileSync(target, "outside\n");
@@ -323,12 +313,7 @@ test("discarding or restoring changed lines of a symlink restores the link witho
     await waitFor("link diff to expand", () => statusText().includes(`[ ] +${target}`));
     const targetLine = editor.document.getText().split("\n").indexOf(`[ ] +${target}`);
     editor.selection = new vscode.Selection(targetLine, 0, targetLine, 0);
-    const running = vscode.commands.executeCommand(command);
-    if (command === "majj.discard") {
-      await waitFor("confirmation prompt", () => api.confirmPrompt() !== undefined);
-      api.answerConfirmation("y");
-    }
-    await running;
+    await vscode.commands.executeCommand(command);
     await waitFor("link to be restored", () => !statusText().includes("A link"));
     assert.ok(!fs.existsSync(link));
     assert.equal(fs.readFileSync(target, "utf8"), "outside\n");
