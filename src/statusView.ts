@@ -22,8 +22,8 @@ const NO_REPO = /There is no jj repo in/;
 // lines can be mapped to changes whatever the user's log template looks like.
 // A divergent change ID is ambiguous, so those entries use their commit ID.
 const MARK = /\x1e([^\x1f]*)\x1f/;
-const markedTemplate = (template: string) =>
-  `"\\x1e" ++ stringify(if(divergent, commit_id, change_id)) ++ "\\x1f" ++ (${template})`;
+const ENTRY_ID = "stringify(if(divergent, commit_id, change_id))";
+const markedTemplate = (template: string) => `"\\x1e" ++ ${ENTRY_ID} ++ "\\x1f" ++ (${template})`;
 // jj's line for an edge through changes the revset leaves out, under the node it comes from.
 const ELIDED = /^[^~]*~\s+\(elided revisions\)\s*$/;
 
@@ -41,6 +41,8 @@ export interface Status {
   diffs: Map<string, FileDiff>;
   /** The change whose elided ancestors each `(elided revisions)` line stands for, by line index. */
   elisions: Map<number, string>;
+  /** For each line of a change shown only because of an expanded elision, that elision's change. */
+  revealed: Map<number, string>;
 }
 
 export interface SelectedFile {
@@ -57,6 +59,8 @@ export interface StatusData {
   diff: string;
   log: string;
   revset: string;
+  /** The expanded elision's change that each change in the graph is shown for, if any. */
+  revealedBy: Map<string, string>;
 }
 
 function selectableByChunk(fileDiff?: FileDiff): Map<number, Set<number>> {
@@ -124,11 +128,16 @@ export function formatStatus(
   // The change of the last node drawn in each column of the graph.
   const nodeChanges = new Map<number, string>();
   const elisions = new Map<number, string>();
+  const revealed = new Map<number, string>();
   for (const line of data.log.split("\n")) {
     const mark = MARK.exec(line);
     change = mark?.[1] ?? change;
     if (change) {
       changes.set(out.line, change);
+      const by = data.revealedBy.get(change);
+      if (by) {
+        revealed.set(out.line, by);
+      }
     }
     if (mark) {
       // The node is the last character of the graph before the entry.
@@ -142,7 +151,7 @@ export function formatStatus(
     }
     out.appendAnsi(mark ? line.replace(mark[0], "") : line).newline();
   }
-  return { text: out.build(), changes, files, foldSpans, diffLines, diffs, elisions };
+  return { text: out.build(), changes, files, foldSpans, diffLines, diffs, elisions, revealed };
 }
 
 async function fetchStatusData(root: string, expandedElisions: ReadonlySet<string> = new Set()): Promise<StatusData> {
@@ -153,7 +162,7 @@ async function fetchStatusData(root: string, expandedElisions: ReadonlySet<strin
     revset || graphRevset(root, recentChanges),
     configGet(root, "templates.log"),
   ]);
-  const logRevset = await withElisions(root, baseRevset, expandedElisions);
+  const { revset: logRevset, revealedBy } = await withElisions(root, baseRevset, expandedElisions);
   const logArgs = ["log", "--ignore-working-copy", "-T", markedTemplate(logTemplate)];
   if (logRevset) {
     logArgs.push("-r", logRevset);
@@ -166,7 +175,7 @@ async function fetchStatusData(root: string, expandedElisions: ReadonlySet<strin
     runJj(root, logArgs, { color: true }),
     hasFiles ? runJj(root, ["diff", "--git", "--ignore-working-copy"], { color: true }) : Promise.resolve(""),
   ]);
-  return { status, diff, log, revset };
+  return { status, diff, log, revset, revealedBy };
 }
 
 export async function renderStatus(
@@ -198,24 +207,38 @@ function errorStatus(root: string, e: unknown): Status {
     diffLines: new Map(),
     diffs: new Map(),
     elisions: new Map(),
+    revealed: new Map(),
   };
 }
 
 /**
  * `revset` plus, for each change in `expanded`, the changes between it and
- * its ancestors in `revset`, which the graph would otherwise elide.
+ * its ancestors in `revset`, which the graph would otherwise elide. Also
+ * returns which expanded change each of those is shown for.
  */
 async function withElisions(
   root: string,
   revset: string | undefined,
   expanded: ReadonlySet<string>,
-): Promise<string | undefined> {
+): Promise<{ revset: string | undefined; revealedBy: Map<string, string> }> {
+  const revealedBy = new Map<string, string>();
   if (expanded.size === 0) {
-    return revset;
+    return { revset, revealedBy };
   }
   const base = `(${revset ?? (await configGet(root, "revsets.log"))})`;
   // present() keeps a change abandoned since from breaking the whole revset.
-  return [base, ...[...expanded].map((c) => `((${base} & ::present(${c}))::present(${c}))`)].join(" | ");
+  const elided = (c: string) => `((${base} & ::present(${c}))::present(${c}))`;
+  await Promise.all(
+    [...expanded].map(async (c) => {
+      const args = ["log", "--no-graph", "--ignore-working-copy", "-r", `${elided(c)} ~ ${base}`];
+      for (const id of (await runJj(root, [...args, "-T", `${ENTRY_ID} ++ "\\n"`])).split("\n")) {
+        if (id) {
+          revealedBy.set(id, c);
+        }
+      }
+    }),
+  );
+  return { revset: [base, ...[...expanded].map(elided)].join(" | "), revealedBy };
 }
 
 /**
@@ -253,6 +276,7 @@ export class StatusView extends View {
   private diffLines = new Map<number, DiffLine>();
   private diffs = new Map<string, FileDiff>();
   private elisions = new Map<number, string>();
+  private revealed = new Map<number, string>();
   /** Changes whose elided ancestors tab has expanded. */
   private expandedElisions = new Set<string>();
 
@@ -308,8 +332,13 @@ export class StatusView extends View {
 
   override toggleFold(line: number): number | undefined {
     const elided = this.elisions.get(line);
-    if (elided) {
-      this.expandedElisions.add(elided);
+    const revealedBy = this.revealed.get(line);
+    if (elided || revealedBy) {
+      if (elided) {
+        this.expandedElisions.add(elided);
+      } else {
+        this.expandedElisions.delete(revealedBy!);
+      }
       void this.refresh();
       return undefined;
     }
@@ -467,9 +496,10 @@ export class StatusView extends View {
     }
   }
 
-  private applyStatus({ text, changes, files, foldSpans, diffLines, diffs, elisions }: Status): StyledText {
+  private applyStatus({ text, changes, files, foldSpans, diffLines, diffs, elisions, revealed }: Status): StyledText {
     this.changes = changes;
     this.elisions = elisions;
+    this.revealed = revealed;
     this.files = files;
     this.foldSpans = foldSpans;
     this.diffLines = diffLines;

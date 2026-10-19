@@ -134,7 +134,7 @@ test("recent changes are shown even when the log revset hides them", async () =>
   }
 });
 
-test("tab on elided revisions in the graph shows the changes they stand for", async () => {
+test("tab on elided revisions in the graph shows the changes they stand for, and tab on one of them hides them", async () => {
   await setConfig("autoRefresh.mode", "off");
   await setConfig("status.revset", 'root() | @ | description(substring:"Sibling change")');
   try {
@@ -151,6 +151,15 @@ test("tab on elided revisions in the graph shows the changes they stand for", as
     await waitFor("the elided changes to appear", () => statusText().includes("First change"));
     assert.ok(statusText().includes("Second change"));
     assert.ok(!statusText().includes("(elided revisions)"));
+
+    // Tab on one of the revealed changes hides them again.
+    const second = statusText()
+      .split("\n")
+      .findIndex((l) => l.includes("Second change") && !l.startsWith("Parent commit"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(second, 0, second, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("the elision to come back", () => statusText().includes("(elided revisions)"));
+    assert.ok(!statusText().includes("First change"));
   } finally {
     await setConfig("status.revset", undefined);
     await vscode.commands.executeCommand("majj.status");
