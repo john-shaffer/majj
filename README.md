@@ -35,35 +35,43 @@ open as preview tabs, which the next one you open replaces. Press `enter` on a
 file under "Working copy changes" to open the file, `tab` on a file or diff
 chunk to show or hide it (also in `change.majj`), `space` on a file, chunk, or
 changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `c` to commit the
-working copy (`jj commit`), which asks for a message if it has no description,
-`s` to split the selected changes (`jj split`), `S` to squash changes
+working copy (`jj commit`), which opens its description for editing if it has
+none, `s` to split the selected changes (`jj split`), `S` to squash changes
 (`jj squash`), `X` to restore changes (`jj restore`), or `k` to discard a file,
 chunk, or changed lines after a `y`/`n` confirmation.
+
+When jj needs a description, majj opens jj's draft in an editor tab. Press
+`ctrl+c ctrl+c` to save it and finish, or `ctrl+c ctrl+k` to cancel. Closing the
+tab finishes with what was last saved, and a description with nothing but `JJ:`
+lines cancels. jj runs majj's own helper as its editor, so this doesn't depend on
+the `code` command.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.
 
 ## Keybindings
 
-| Command                              | Default   | When                         |
-| ------------------------------------ | --------- | ---------------------------- |
-| `majj.abandon`                       | `a`       | in the status view           |
-| `majj.commit`                        | `c`       | in the status view           |
-| `majj.discard`                       | `k`       | in the status view           |
-| `majj.edit`                          | `e`       | in the status view           |
-| `majj.help`                          | `?`       | in majj views                |
-| `majj.rebase`                        | `r`       | in the status view           |
-| `majj.redo`                          | `ctrl+y`  | in majj views                |
-| `majj.refresh`                       | `g`       | in majj views                |
-| `majj.restore`                       | `X`       | in the status view           |
-| `majj.split`                         | `s`       | in the status view           |
-| `majj.squash`                        | `S`       | in the status view           |
-| `majj.status`                        | `alt+x j` | anywhere                     |
-| `majj.toggleFold`                    | `tab`     | in status and change views   |
-| `majj.toggleSelect`                  | `space`   | in the status view           |
-| `majj.undo`                          | `ctrl+z`  | in majj views                |
-| `majj.visit`                         | `enter`   | in the status view           |
-| `workbench.action.closeActiveEditor` | `q`       | in majj views                |
+| Command                              | Default         | When                       |
+| ------------------------------------ | --------------- | -------------------------- |
+| `majj.abandon`                       | `a`             | in the status view         |
+| `majj.cancelEditing`                 | `ctrl+c ctrl+k` | in a description editor    |
+| `majj.commit`                        | `c`             | in the status view         |
+| `majj.discard`                       | `k`             | in the status view         |
+| `majj.edit`                          | `e`             | in the status view         |
+| `majj.finishEditing`                 | `ctrl+c ctrl+c` | in a description editor    |
+| `majj.help`                          | `?`             | in majj views              |
+| `majj.rebase`                        | `r`             | in the status view         |
+| `majj.redo`                          | `ctrl+y`        | in majj views              |
+| `majj.refresh`                       | `g`             | in majj views              |
+| `majj.restore`                       | `X`             | in the status view         |
+| `majj.split`                         | `s`             | in the status view         |
+| `majj.squash`                        | `S`             | in the status view         |
+| `majj.status`                        | `alt+x j`       | anywhere                   |
+| `majj.toggleFold`                    | `tab`           | in status and change views |
+| `majj.toggleSelect`                  | `space`         | in the status view         |
+| `majj.undo`                          | `ctrl+z`        | in majj views              |
+| `majj.visit`                         | `enter`         | in the status view         |
+| `workbench.action.closeActiveEditor` | `q`             | in majj views              |
 
 Change them in **Preferences: Open Keyboard Shortcuts** (search for "majj"), or in
 `keybindings.json`:

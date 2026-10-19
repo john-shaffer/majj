@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import { StyledText } from "./ansi";
 import { ChangeView } from "./changeView";
 import { Decorator } from "./decorations";
+import { DescriptionEditor } from "./descriptionEditor";
 import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
 import {
@@ -41,6 +42,7 @@ export interface MajjApi {
 
 export function activate(context: vscode.ExtensionContext): MajjApi {
   const decorator = new Decorator();
+  const descriptionEditor = new DescriptionEditor();
   const changed = new vscode.EventEmitter<vscode.Uri>();
 
   const editorsFor = (view: View) =>
@@ -150,14 +152,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       return;
     }
     try {
-      let message: string | undefined;
-      if (!(await description(view.root, "@")).trim()) {
-        message = await promptInput("Commit message");
-        if (!message) {
-          return;
-        }
+      if ((await description(view.root, "@")).trim()) {
+        await commit(view.root);
+      } else if (!(await descriptionEditor.run(view.root, ["commit"]))) {
+        vscode.window.setStatusBarMessage("Commit canceled.", 4000);
+        return;
       }
-      await commit(view.root, message);
       await view.refresh();
     } catch (e) {
       void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
@@ -404,12 +404,15 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
 
   context.subscriptions.push(
     decorator,
+    descriptionEditor,
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.abandon", abandonChange),
+    vscode.commands.registerCommand("majj.cancelEditing", () => descriptionEditor.cancel()),
     vscode.commands.registerCommand("majj.commit", commitWorkingCopy),
     vscode.commands.registerCommand("majj.discard", discard),
     vscode.commands.registerCommand("majj.edit", editChange),
+    vscode.commands.registerCommand("majj.finishEditing", () => descriptionEditor.finish()),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.rebase", rebaseChange),
     vscode.commands.registerCommand("majj.redo", runRedo),

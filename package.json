@@ -26,6 +26,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.cancelEditing",
+        "title": "Cancel Editing Description",
+        "category": "Majj"
+      },
+      {
         "command": "majj.commit",
         "title": "Commit Working Copy",
         "category": "Majj"
@@ -38,6 +43,11 @@
       {
         "command": "majj.edit",
         "title": "Edit Change at Point",
+        "category": "Majj"
+      },
+      {
+        "command": "majj.finishEditing",
+        "title": "Finish Editing Description",
         "category": "Majj"
       },
       {
@@ -169,6 +179,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.cancelEditing",
+        "key": "ctrl+c ctrl+k",
+        "when": "editorTextFocus && editorLangId == jjdescription"
+      },
+      {
         "command": "majj.commit",
         "key": "c",
         "when": "editorTextFocus && editorLangId == majj"
@@ -182,6 +197,11 @@
         "command": "majj.edit",
         "key": "e",
         "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.finishEditing",
+        "key": "ctrl+c ctrl+c",
+        "when": "editorTextFocus && editorLangId == jjdescription"
       },
       {
         "command": "majj.help",
@@ -255,6 +275,15 @@
     ],
     "languages": [
       {
+        "id": "jjdescription",
+        "aliases": [
+          "jj Description"
+        ],
+        "extensions": [
+          ".jjdescription"
+        ]
+      },
+      {
         "id": "majj",
         "aliases": [
           "Majj"
@@ -271,6 +300,10 @@
           "when": "editorLangId == majj"
         },
         {
+          "command": "majj.cancelEditing",
+          "when": "editorLangId == jjdescription"
+        },
+        {
           "command": "majj.commit",
           "when": "editorLangId == majj"
         },
@@ -281,6 +314,10 @@
         {
           "command": "majj.edit",
           "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.finishEditing",
+          "when": "editorLangId == jjdescription"
         },
         {
           "command": "majj.help",

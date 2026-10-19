@@ -587,39 +587,58 @@ test("abandoning a change in status.majj with a runs jj abandon", async () => {
   }
 });
 
-test("committing with c prompts for a message only when the working copy has none", async () => {
+test("committing with c opens a description editor only when the working copy has no description", async () => {
   await setConfig("autoRefresh.mode", "off");
-  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
   const description = (rev: string) => jj("log", "--no-graph", "-r", rev, "-T", "description").trim();
+  const isEmpty = (rev: string) => jj("log", "--no-graph", "-r", rev, "-T", "empty").trim() === "true";
+  const activeLanguage = () => vscode.window.activeTextEditor?.document.languageId;
+  // Returns the commit command's promise wrapped, since awaiting it waits until editing finishes.
+  const startCommit = async () => {
+    await vscode.commands.executeCommand("majj.status");
+    const committing = vscode.commands.executeCommand("majj.commit");
+    await waitFor("the description editor", () => activeLanguage() === "jjdescription");
+    return { committing };
+  };
   try {
     jj("describe", "-m", "");
     await vscode.commands.executeCommand("majj.status");
     await waitFor("A c.txt to appear", () => statusText().includes("[ ] A c.txt"));
 
-    // Cancelling the prompt leaves the working copy alone.
-    const cancelled = vscode.commands.executeCommand("majj.commit");
-    await waitFor("commit message prompt", () => api.confirmPrompt() !== undefined);
-    assert.equal(api.confirmPrompt(), "Commit message");
-    api.answerConfirmation("");
-    await cancelled;
-    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "empty").trim(), "false");
+    // ctrl+c ctrl+k cancels, even after editing.
+    let { committing } = await startCommit();
+    const draft = vscode.window.activeTextEditor!.document.getText();
+    assert.match(draft, /^JJ: This commit contains the following changes:\nJJ: {5}A c\.txt$/m);
+    await vscode.window.activeTextEditor!.edit((b) => b.insert(new vscode.Position(0, 0), "Cancelled message"));
+    await vscode.commands.executeCommand("majj.cancelEditing");
+    await committing;
+    assert.ok(!isEmpty("@"));
+    assert.equal(description("@"), "");
 
-    const committing = vscode.commands.executeCommand("majj.commit");
-    await waitFor("commit message prompt", () => api.confirmPrompt() !== undefined);
-    api.answerConfirmation("Committed from majj");
+    // Finishing without writing a description cancels too.
+    ({ committing } = await startCommit());
+    await vscode.commands.executeCommand("majj.finishEditing");
+    await committing;
+    assert.ok(!isEmpty("@"));
+
+    // ctrl+c ctrl+c commits with the edited description.
+    ({ committing } = await startCommit());
+    await vscode.window.activeTextEditor!.edit((b) => b.insert(new vscode.Position(0, 0), "Committed from majj"));
+    await vscode.commands.executeCommand("majj.finishEditing");
     await committing;
     assert.equal(description("@-"), "Committed from majj");
     assert.equal(description("@"), "");
     await waitFor("c.txt to leave the working copy", () => !statusText().includes("A c.txt"));
+    assert.ok(!vscode.window.tabGroups.all.some((g) => g.tabs.some((t) => t.label.endsWith(".jjdescription"))));
 
-    // An existing description is kept without prompting.
+    // An existing description is kept without opening the editor.
     fs.writeFileSync(path.join(repo, "described.txt"), "x\n");
     jj("describe", "-m", "Already described");
+    await vscode.commands.executeCommand("majj.status");
     await vscode.commands.executeCommand("majj.commit");
-    assert.equal(api.confirmPrompt(), undefined);
+    assert.notEqual(activeLanguage(), "jjdescription");
     assert.equal(description("@-"), "Already described");
-    assert.equal(jj("log", "--no-graph", "-r", "@-", "-T", "empty").trim(), "false");
+    assert.ok(!isEmpty("@-"));
     assert.equal(description("@"), "");
   } finally {
     jj("op", "restore", savedOp);
