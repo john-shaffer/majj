@@ -19,6 +19,7 @@ import {
   restoreChanges,
   restoreRevision,
   SelectedChanges,
+  snapshot,
   split,
   squash,
   undo,
@@ -196,6 +197,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     const names = [...byFile.keys()].map((f) => f.path).join(", ");
     if (await confirm(`Discard selected changes to ${names}?`)) {
       try {
+        // Snapshots on both sides make the edit its own jj operation, which jj undo can undo.
+        await snapshot(view.root);
         for (const [fileDiff, chunks] of byFile) {
           if (fileDiff.symlink) {
             await restore(view.root, diffPaths(fileDiff));
@@ -207,6 +210,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
           await fs.mkdir(path.dirname(fullPath), { recursive: true });
           await fs.writeFile(fullPath, updated);
         }
+        await snapshot(view.root);
         await view.refresh();
       } catch (e) {
         void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);

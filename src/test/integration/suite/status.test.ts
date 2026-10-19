@@ -281,6 +281,13 @@ test("discarding individual changed lines and selections of changed lines revert
     await waitFor("b2 to be removed", () => !statusText().includes("+b2") && statusText().includes("+b1"));
     assert.equal(fs.readFileSync(filePath, "utf8"), "b1\nb3\n");
 
+    // jj undo brings the discarded line back, and jj redo discards it again.
+    await vscode.commands.executeCommand("majj.undo");
+    assert.equal(fs.readFileSync(filePath, "utf8"), "b1\nb2\nb3\n");
+    await vscode.commands.executeCommand("majj.redo");
+    assert.equal(fs.readFileSync(filePath, "utf8"), "b1\nb3\n");
+    await waitFor("b2 to be removed again", () => !statusText().includes("+b2") && statusText().includes("+b1"));
+
     // Discard a selection spanning -b and +b1, restoring b and removing b1 while keeping b3.
     const lines = editor.document.getText().split("\n");
     const minusB = lines.indexOf("[ ] -b");

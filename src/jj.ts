@@ -183,6 +183,11 @@ export async function withSelection<T>(
   }
 }
 
+/** Records the working copy's files in a jj operation (`jj util snapshot`). */
+export async function snapshot(cwd: string): Promise<void> {
+  await runJj(cwd, ["util", "snapshot"]);
+}
+
 /** Splits the selected working copy changes into a parent commit (`jj split`). */
 export async function split(cwd: string, selection: SelectedChanges): Promise<void> {
   await runWithSelection(cwd, ["split", "-m", ""], selection);
