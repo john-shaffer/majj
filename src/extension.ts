@@ -15,6 +15,8 @@ import {
   edit,
   findRoot,
   newChange,
+  next,
+  prev,
   rebase,
   redo,
   restore,
@@ -266,6 +268,10 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
 
   const newOnChange = statusCommand((view, editor) => newChange(view.root, changeAtPoint(view, editor) ?? "@"));
 
+  const moveToNext = statusCommand((view) => next(view.root));
+
+  const moveToPrev = statusCommand((view) => prev(view.root));
+
   const rebaseChange = statusCommand(async (view, editor) => {
     const source = changeAtPoint(view, editor) ?? "@";
     const dest = await promptInput(`Rebase ${source} onto`);
@@ -386,6 +392,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.finishEditing", () => descriptionEditor.finish()),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.new", newOnChange),
+    vscode.commands.registerCommand("majj.next", moveToNext),
+    vscode.commands.registerCommand("majj.prev", moveToPrev),
     vscode.commands.registerCommand("majj.rebase", rebaseChange),
     vscode.commands.registerCommand("majj.redo", runRedo),
     vscode.commands.registerCommand("majj.refresh", refresh),

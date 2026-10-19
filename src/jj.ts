@@ -77,6 +77,16 @@ export async function newChange(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["new", revision]);
 }
 
+/** Moves the working copy to the child of `@-` (`jj next`). */
+export async function next(cwd: string): Promise<void> {
+  await runJj(cwd, ["next"]);
+}
+
+/** Moves the working copy to the parent of `@-` (`jj prev`). */
+export async function prev(cwd: string): Promise<void> {
+  await runJj(cwd, ["prev"]);
+}
+
 const REBASE_SOURCE_FLAGS = new Set(["-b", "--branch", "-r", "--revision", "-s", "--source"]);
 
 /**

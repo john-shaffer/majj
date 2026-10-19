@@ -71,6 +71,16 @@
         "category": "Majj"
       },
       {
+        "command": "majj.next",
+        "title": "Move Working Copy to Next Change",
+        "category": "Majj"
+      },
+      {
+        "command": "majj.prev",
+        "title": "Move Working Copy to Previous Change",
+        "category": "Majj"
+      },
+      {
         "command": "majj.rebase",
         "title": "Rebase Change at Point",
         "category": "Majj"
@@ -250,6 +260,16 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.next",
+        "key": "]",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.prev",
+        "key": "[",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.rebase",
         "key": "r",
         "when": "editorTextFocus && editorLangId == majj"
@@ -370,6 +390,14 @@
         },
         {
           "command": "majj.new",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.next",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.prev",
           "when": "editorLangId == majj"
         },
         {

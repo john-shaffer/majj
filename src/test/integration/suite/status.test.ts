@@ -725,6 +725,28 @@ test("n starts a new change on the change at point, or on the working copy", asy
   }
 });
 
+test("] and [ move the working copy to the next and previous change", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const parent = () => jj("log", "--no-graph", "-r", "@-", "-T", "change_id").trim();
+  const original = jj("log", "--no-graph", "-r", "@", "-T", "change_id").trim();
+  try {
+    // prev and next move relative to @-, as from an empty change on top of the work.
+    jj("new");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("the graph", () => statusText().includes("Changes:"));
+    await vscode.commands.executeCommand("majj.next");
+    assert.equal(jj("log", "--no-graph", "-r", "@-", "-T", "description").trim(), "Descendant change");
+    await waitFor("the view to refresh", () => /^Parent commit \(@-\): .*Descendant change/m.test(statusText()));
+    await vscode.commands.executeCommand("majj.prev");
+    assert.equal(parent(), original);
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("repo restored", () => statusText().includes("[ ] A c.txt"));
+  }
+});
+
 test("committing with c opens a description editor only when the working copy has no description", async () => {
   await setConfig("autoRefresh.mode", "off");
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
@@ -868,6 +890,8 @@ test("help command opens help.majj with the essential commands", async () => {
       "  s        split selected changes",
       "  S        squash changes",
       "  X        restore changes",
+      "  [        move to previous change",
+      "  ]        move to next change",
       "  ctrl+z   undo last operation",
       "  ctrl+y   redo last undone operation",
       "  q        exit / close majj view",

@@ -32,6 +32,8 @@ const ESSENTIAL: HelpEntry[] = [
   { command: "majj.split", description: "split selected changes" },
   { command: "majj.squash", description: "squash changes" },
   { command: "majj.restore", description: "restore changes" },
+  { command: "majj.prev", description: "move to previous change" },
+  { command: "majj.next", description: "move to next change" },
   { command: "majj.undo", description: "undo last operation" },
   { command: "majj.redo", description: "redo last undone operation" },
   { command: "workbench.action.closeActiveEditor", description: "exit / close majj view" },
