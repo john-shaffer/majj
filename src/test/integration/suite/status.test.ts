@@ -647,6 +647,10 @@ test("committing with c opens a description editor only when the working copy ha
     let { committing } = await startCommit();
     const draft = vscode.window.activeTextEditor!.document.getText();
     assert.match(draft, /^JJ: This commit contains the following changes:\nJJ: {5}A c\.txt$/m);
+    assert.match(
+      draft,
+      /\nJJ: ignore-rest\nJJ: Do not modify or remove the line above\.\nJJ: Everything below it will be ignored\.\ndiff --git a\/c\.txt b\/c\.txt\n(.*\n)*?@@ -0,0 \+1,1 @@\n\+c\n/,
+    );
     await vscode.window.activeTextEditor!.edit((b) => b.insert(new vscode.Position(0, 0), "Cancelled message"));
     await vscode.commands.executeCommand("majj.cancelEditing");
     await committing;

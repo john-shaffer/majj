@@ -40,11 +40,12 @@ none, `s` to split the selected changes (`jj split`), `S` to squash changes
 (`jj squash`), `X` to restore changes (`jj restore`), or `k` to discard a file,
 chunk, or changed lines after a `y`/`n` confirmation.
 
-When jj needs a description, majj opens jj's draft in an editor tab. Press
-`ctrl+c ctrl+c` to save it and finish, or `ctrl+c ctrl+k` to cancel. Closing the
-tab finishes with what was last saved, and a description with nothing but `JJ:`
-lines cancels. jj runs majj's own helper as its editor, so this doesn't depend on
-the `code` command.
+When jj needs a description, majj opens jj's draft in an editor tab, with the
+change's diff below a `JJ: ignore-rest` line, which jj ignores along with
+everything after it. Press `ctrl+c ctrl+c` to save it and finish, or
+`ctrl+c ctrl+k` to cancel. Closing the tab finishes with what was last saved,
+and a description with nothing but `JJ:` lines cancels. jj runs majj's own
+helper as its editor, so this doesn't depend on the `code` command.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.

@@ -24,10 +24,11 @@ export class DescriptionEditor implements vscode.Disposable {
   });
 
   /**
-   * Runs jj with `args`, editing any description jj asks for in a tab.
-   * Resolves to false if the edit was cancelled.
+   * Runs jj with `args`, editing any description jj asks for in a tab below
+   * which `diffRevision`'s diff is shown. Resolves to false if the edit was
+   * cancelled.
    */
-  async run(cwd: string, args: string[]): Promise<boolean> {
+  async run(cwd: string, args: string[], diffRevision: string): Promise<boolean> {
     let socketDir: string | undefined;
     let socketPath: string;
     if (process.platform === "win32") {
@@ -49,7 +50,9 @@ export class DescriptionEditor implements vscode.Disposable {
         connection.off("data", onData);
         let finished = false;
         try {
-          finished = await this.edit(vscode.Uri.file(request.slice(0, end)));
+          const uri = vscode.Uri.file(request.slice(0, end));
+          await appendDiff(uri, cwd, diffRevision);
+          finished = await this.edit(uri);
         } catch (e) {
           // Reply anyway, or jj would wait forever.
           void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
@@ -107,8 +110,9 @@ export class DescriptionEditor implements vscode.Disposable {
         return false;
       }
       // jj would otherwise go ahead with an empty description.
-      const saved = await fs.readFile(uri.fsPath, "utf8");
-      return saved.split("\n").some((line) => !line.startsWith("JJ:") && line.trim() !== "");
+      const saved = (await fs.readFile(uri.fsPath, "utf8")).split("\n");
+      const end = saved.findIndex(isIgnoreRest);
+      return saved.slice(0, end < 0 ? undefined : end).some((line) => !line.startsWith("JJ:") && line.trim() !== "");
     } finally {
       hint.dispose();
       this.sessions.delete(uri.toString());
@@ -121,4 +125,25 @@ export class DescriptionEditor implements vscode.Disposable {
       resolve(false);
     }
   }
+}
+
+// jj drops this line and everything after it.
+const isIgnoreRest = (line: string) => line.trim() === "JJ: ignore-rest";
+
+/**
+ * Appends the diff of `revision` to the description in `uri`, after a line
+ * that makes jj ignore it, unless the user's draft template already has one.
+ */
+async function appendDiff(uri: vscode.Uri, cwd: string, revision: string): Promise<void> {
+  const draft = await fs.readFile(uri.fsPath, "utf8");
+  if (draft.split("\n").some(isIgnoreRest)) {
+    return;
+  }
+  // jj is waiting on the editor, so leave the working copy to it.
+  const diff = await runJj(cwd, ["diff", "--git", "--ignore-working-copy", "-r", revision]);
+  const separator = draft.endsWith("\n") || draft === "" ? "" : "\n";
+  await fs.appendFile(
+    uri.fsPath,
+    `${separator}JJ: ignore-rest\nJJ: Do not modify or remove the line above.\nJJ: Everything below it will be ignored.\n${diff}`,
+  );
 }

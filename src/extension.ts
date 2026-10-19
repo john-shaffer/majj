@@ -157,7 +157,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     try {
       if ((await description(view.root, "@")).trim()) {
         await commit(view.root);
-      } else if (!(await descriptionEditor.run(view.root, ["commit"]))) {
+      } else if (!(await descriptionEditor.run(view.root, ["commit"], "@"))) {
         vscode.window.setStatusBarMessage("Commit canceled.", 4000);
         return;
       }
