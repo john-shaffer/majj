@@ -186,6 +186,25 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const describeAtPoint = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    const revision = view.changeAt(editor.selection.active.line) ?? "@";
+    try {
+      // Unlike for a commit, clearing a description on purpose is a reasonable edit.
+      if (!(await descriptionEditor.run(view.root, ["describe", revision], { allowEmpty: true }))) {
+        vscode.window.setStatusBarMessage("Describe canceled.", 4000);
+        return;
+      }
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   // Discards working copy changes at point, or abandons the change at point.
   // jj undo can reverse either, so unlike with git there's no confirmation.
   const discard = async () => {
@@ -441,6 +460,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.absorb", absorbAtPoint),
     vscode.commands.registerCommand("majj.cancelEditing", () => descriptionEditor.cancel()),
     vscode.commands.registerCommand("majj.commit", commitWorkingCopy),
+    vscode.commands.registerCommand("majj.describe", describeAtPoint),
     vscode.commands.registerCommand("majj.discard", discard),
     vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.finishEditing", () => descriptionEditor.finish()),

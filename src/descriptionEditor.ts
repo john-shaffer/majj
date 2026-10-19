@@ -26,9 +26,10 @@ export class DescriptionEditor implements vscode.Disposable {
   /**
    * Runs jj with `args`, editing any description jj asks for in a tab, below
    * which the diff of the commit being described is shown. Resolves to false
-   * if the edit was cancelled.
+   * if the edit was cancelled, which finishing with an empty description
+   * counts as unless `allowEmpty`.
    */
-  async run(cwd: string, args: string[]): Promise<boolean> {
+  async run(cwd: string, args: string[], { allowEmpty = false } = {}): Promise<boolean> {
     let socketDir: string | undefined;
     let socketPath: string;
     if (process.platform === "win32") {
@@ -50,7 +51,7 @@ export class DescriptionEditor implements vscode.Disposable {
         connection.off("data", onData);
         let finished = false;
         try {
-          finished = await this.edit(vscode.Uri.file(request.slice(0, end)));
+          finished = await this.edit(vscode.Uri.file(request.slice(0, end)), allowEmpty);
         } catch (e) {
           // Reply anyway, or jj would wait forever.
           void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
@@ -103,7 +104,7 @@ export class DescriptionEditor implements vscode.Disposable {
     }
   }
 
-  private async edit(uri: vscode.Uri): Promise<boolean> {
+  private async edit(uri: vscode.Uri, allowEmpty: boolean): Promise<boolean> {
     const hint = vscode.window.setStatusBarMessage("Type C-c C-c to finish, or C-c C-k to cancel");
     try {
       const done = new Promise<boolean>((resolve) => this.sessions.set(uri.toString(), resolve));
@@ -111,6 +112,9 @@ export class DescriptionEditor implements vscode.Disposable {
       editor.selection = new vscode.Selection(0, 0, 0, 0);
       if (!(await done)) {
         return false;
+      }
+      if (allowEmpty) {
+        return true;
       }
       // jj would otherwise go ahead with an empty description.
       const saved = (await fs.readFile(uri.fsPath, "utf8")).split("\n");

@@ -24,6 +24,7 @@ const ESSENTIAL: HelpEntry[] = [
   { command: "majj.visit", description: "visit thing at point" },
   { command: "majj.absorb", description: "absorb change at point" },
   { command: "majj.commit", description: "commit working copy" },
+  { command: "majj.describe", description: "describe change at point" },
   { command: "majj.edit", description: "edit change at point" },
   { command: "majj.discard", description: "discard or abandon at point" },
   { command: "majj.rebase", description: "rebase change at point" },

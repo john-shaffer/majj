@@ -41,6 +41,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.describe",
+        "title": "Describe Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.discard",
         "title": "Discard at Point",
         "category": "Majj"
@@ -205,6 +210,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.describe",
+        "key": "d",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.discard",
         "key": "k",
         "when": "editorTextFocus && editorLangId == majj"
@@ -326,6 +336,10 @@
         },
         {
           "command": "majj.commit",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.describe",
           "when": "editorLangId == majj"
         },
         {

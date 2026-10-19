@@ -19,6 +19,7 @@ test("default keybindings render the essential commands section", () => {
     "  RET      visit thing at point",
     "  a        absorb change at point",
     "  c        commit working copy",
+    "  d        describe change at point",
     "  e        edit change at point",
     "  k        discard or abandon at point",
     "  r        rebase change at point",
@@ -43,9 +44,10 @@ test("default keybindings render the essential commands section", () => {
     { line: 10, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 11, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 12, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 13, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 13, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 14, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 15, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 15, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 16, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
   ]);
 });
 
@@ -68,6 +70,7 @@ test("user keybindings override defaults and widen the key column when needed", 
     "  ctrl+enter  visit thing at point",
     "  a           absorb change at point",
     "  c           commit working copy",
+    "  d           describe change at point",
     "  e           edit change at point",
     "  k           discard or abandon at point",
     "  r           rebase change at point",

@@ -655,6 +655,49 @@ test("a absorbs the change at point, or the working copy, into the ancestors tha
   }
 });
 
+test("d edits the description of the change at point, or of the working copy, in the description editor", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const activeLanguage = () => vscode.window.activeTextEditor?.document.languageId;
+  const describeAt = async (line: (lines: string[]) => number, edit: (doc: vscode.TextDocument) => vscode.TextEdit) => {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("the graph", () => statusText().includes("Changes:"));
+    const status = vscode.window.activeTextEditor!;
+    const at = line(statusText().split("\n"));
+    status.selection = new vscode.Selection(at, 0, at, 0);
+    const describing = vscode.commands.executeCommand("majj.describe");
+    await waitFor("the description editor", () => activeLanguage() === "jjdescription");
+    const editor = vscode.window.activeTextEditor!;
+    const { range, newText } = edit(editor.document);
+    await editor.edit((b) => b.replace(range, newText));
+    await vscode.commands.executeCommand("majj.finishEditing");
+    await describing;
+  };
+  try {
+    // A change in the graph: its description is there to edit, with its diff below.
+    await describeAt(
+      (lines) => lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change")),
+      (doc) => {
+        assert.match(doc.getText(), /^Second change\n[\s\S]*JJ: ignore-rest\n[\s\S]*\+b\n/);
+        return vscode.TextEdit.replace(doc.lineAt(0).range, "Renamed second change");
+      },
+    );
+    assert.equal(jj("log", "--no-graph", "-r", "@-", "-T", "description"), "Renamed second change\n");
+
+    // The working copy, from one of its files. Clearing the description is allowed here.
+    jj("describe", "-m", "To be cleared");
+    await describeAt(
+      (lines) => lines.indexOf("[ ] A c.txt"),
+      (doc) => vscode.TextEdit.replace(doc.lineAt(0).range, ""),
+    );
+    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "description"), "");
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("repo restored", () => statusText().includes("Second change"));
+  }
+});
+
 test("committing with c opens a description editor only when the working copy has no description", async () => {
   await setConfig("autoRefresh.mode", "off");
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
@@ -790,6 +833,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  RET      visit thing at point",
       "  a        absorb change at point",
       "  c        commit working copy",
+      "  d        describe change at point",
       "  e        edit change at point",
       "  k        discard or abandon at point",
       "  r        rebase change at point",
