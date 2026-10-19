@@ -171,7 +171,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
-  // jj undo can reverse a discard, so unlike with git there's no confirmation.
+  // Discards working copy changes at point, or abandons the change at point.
+  // jj undo can reverse either, so unlike with git there's no confirmation.
   const discard = async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
@@ -188,6 +189,9 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       }
       const byFile = view.discardedLinesIn(start.line, end.line);
       if (byFile.size === 0) {
+        if (isEmpty) {
+          await abandonChange();
+        }
         return;
       }
       // Snapshots on both sides make the edit its own jj operation, which jj undo can undo.

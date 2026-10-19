@@ -597,7 +597,7 @@ test("restoring selected working copy changes or a change at point with X runs j
   }
 });
 
-test("abandoning a change in status.majj with a runs jj abandon", async () => {
+test("k on a change in status.majj abandons it with jj abandon", async () => {
   await setConfig("autoRefresh.mode", "off");
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
   try {
@@ -608,7 +608,7 @@ test("abandoning a change in status.majj with a runs jj abandon", async () => {
     const lines = editor.document.getText().split("\n");
     const siblingLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Sibling change"));
     editor.selection = new vscode.Selection(siblingLine, 0, siblingLine, 0);
-    await vscode.commands.executeCommand("majj.abandon");
+    await vscode.commands.executeCommand("majj.discard");
     await waitFor("Sibling change to be abandoned", () => !statusText().includes("Sibling change"));
   } finally {
     jj("op", "restore", savedOp);
@@ -750,10 +750,9 @@ test("help command opens help.majj with the essential commands", async () => {
       "  TAB      toggle section at point",
       "  SPC      toggle selection at point",
       "  RET      visit thing at point",
-      "  a        abandon change at point",
       "  c        commit working copy",
       "  e        edit change at point",
-      "  k        discard at point",
+      "  k        discard or abandon at point",
       "  r        rebase change at point",
       "  s        split selected changes",
       "  S        squash changes",

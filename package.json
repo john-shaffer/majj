@@ -185,11 +185,6 @@
     ],
     "keybindings": [
       {
-        "command": "majj.abandon",
-        "key": "a",
-        "when": "editorTextFocus && editorLangId == majj"
-      },
-      {
         "command": "majj.cancelEditing",
         "key": "ctrl+c ctrl+k",
         "when": "editorTextFocus && editorLangId == jjdescription"

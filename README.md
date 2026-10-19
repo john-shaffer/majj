@@ -28,7 +28,7 @@ Changes:
 
 Press `g` in the view to refresh it, `?` to open `help.majj`, `q` to close a
 view, `ctrl+z` / `ctrl+y` to run `jj undo` / `jj redo`, `enter` on a change in
-the graph to open `change.majj` with its `jj show` output, `a` on a change or
+the graph to open `change.majj` with its `jj show` output, `k` on a change or
 commit to run `jj abandon` on it, `e` to run `jj edit` on it, or `r` to run
 `jj rebase` on it. Like magit's revision buffer, `change.majj` and `help.majj`
 open as preview tabs, which the next one you open replaces. Press `enter` on a
@@ -55,7 +55,7 @@ or the second if the first is active, splitting the editor if there's only one. 
 
 | Command                              | Default         | When                       |
 | ------------------------------------ | --------------- | -------------------------- |
-| `majj.abandon`                       | `a`             | in the status view         |
+| `majj.abandon`                       |                 | in the status view         |
 | `majj.cancelEditing`                 | `ctrl+c ctrl+k` | in a description editor    |
 | `majj.commit`                        | `c`             | in the status view         |
 | `majj.discard`                       | `k`             | in the status view         |
