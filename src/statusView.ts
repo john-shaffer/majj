@@ -24,6 +24,8 @@ const NO_REPO = /There is no jj repo in/;
 const MARK = /\x1e([^\x1f]*)\x1f/;
 const markedTemplate = (template: string) =>
   `"\\x1e" ++ stringify(if(divergent, commit_id, change_id)) ++ "\\x1f" ++ (${template})`;
+// jj's line for an edge through changes the revset leaves out, under the node it comes from.
+const ELIDED = /^[^~]*~\s+\(elided revisions\)\s*$/;
 
 export interface Status {
   text: StyledText;
@@ -37,6 +39,8 @@ export interface Status {
   diffLines: Map<number, DiffLine>;
   /** Parsed file diffs for the working copy, keyed by workspace-relative path. */
   diffs: Map<string, FileDiff>;
+  /** The change whose elided ancestors each `(elided revisions)` line stands for, by line index. */
+  elisions: Map<number, string>;
 }
 
 export interface SelectedFile {
@@ -117,25 +121,39 @@ export function formatStatus(
   }
   out.newline();
   let change: string | undefined;
+  // The change of the last node drawn in each column of the graph.
+  const nodeChanges = new Map<number, string>();
+  const elisions = new Map<number, string>();
   for (const line of data.log.split("\n")) {
     const mark = MARK.exec(line);
     change = mark?.[1] ?? change;
     if (change) {
       changes.set(out.line, change);
     }
+    if (mark) {
+      // The node is the last character of the graph before the entry.
+      nodeChanges.set(stripAnsi(line.slice(0, mark.index)).trimEnd().length - 1, mark[1]);
+    } else {
+      const plain = stripAnsi(line);
+      const elided = ELIDED.test(plain) && nodeChanges.get(plain.indexOf("~"));
+      if (elided) {
+        elisions.set(out.line, elided);
+      }
+    }
     out.appendAnsi(mark ? line.replace(mark[0], "") : line).newline();
   }
-  return { text: out.build(), changes, files, foldSpans, diffLines, diffs };
+  return { text: out.build(), changes, files, foldSpans, diffLines, diffs, elisions };
 }
 
-async function fetchStatusData(root: string): Promise<StatusData> {
+async function fetchStatusData(root: string, expandedElisions: ReadonlySet<string> = new Set()): Promise<StatusData> {
   const { limit, recentChanges, revset } = getConfig();
   // `jj status` snapshots the working copy, so diff and log can skip doing it again.
-  const [status, logRevset, logTemplate] = await Promise.all([
+  const [status, baseRevset, logTemplate] = await Promise.all([
     runJj(root, ["status"], { color: true }),
     revset || graphRevset(root, recentChanges),
     configGet(root, "templates.log"),
   ]);
+  const logRevset = await withElisions(root, baseRevset, expandedElisions);
   const logArgs = ["log", "--ignore-working-copy", "-T", markedTemplate(logTemplate)];
   if (logRevset) {
     logArgs.push("-r", logRevset);
@@ -179,7 +197,25 @@ function errorStatus(root: string, e: unknown): Status {
     foldSpans: new Map(),
     diffLines: new Map(),
     diffs: new Map(),
+    elisions: new Map(),
   };
+}
+
+/**
+ * `revset` plus, for each change in `expanded`, the changes between it and
+ * its ancestors in `revset`, which the graph would otherwise elide.
+ */
+async function withElisions(
+  root: string,
+  revset: string | undefined,
+  expanded: ReadonlySet<string>,
+): Promise<string | undefined> {
+  if (expanded.size === 0) {
+    return revset;
+  }
+  const base = `(${revset ?? (await configGet(root, "revsets.log"))})`;
+  // present() keeps a change abandoned since from breaking the whole revset.
+  return [base, ...[...expanded].map((c) => `((${base} & ::present(${c}))::present(${c}))`)].join(" | ");
 }
 
 /**
@@ -216,6 +252,9 @@ export class StatusView extends View {
   private foldSpans = new Map<number, FoldSpan>();
   private diffLines = new Map<number, DiffLine>();
   private diffs = new Map<string, FileDiff>();
+  private elisions = new Map<number, string>();
+  /** Changes whose elided ancestors tab has expanded. */
+  private expandedElisions = new Set<string>();
 
   /** The ID of the change shown on a line of the change graph. */
   changeAt(line: number): string | undefined {
@@ -268,6 +307,12 @@ export class StatusView extends View {
   }
 
   override toggleFold(line: number): number | undefined {
+    const elided = this.elisions.get(line);
+    if (elided) {
+      this.expandedElisions.add(elided);
+      void this.refresh();
+      return undefined;
+    }
     const span = this.foldSpans.get(line);
     if (!span || !this.raw) {
       return undefined;
@@ -422,8 +467,9 @@ export class StatusView extends View {
     }
   }
 
-  private applyStatus({ text, changes, files, foldSpans, diffLines, diffs }: Status): StyledText {
+  private applyStatus({ text, changes, files, foldSpans, diffLines, diffs, elisions }: Status): StyledText {
     this.changes = changes;
+    this.elisions = elisions;
     this.files = files;
     this.foldSpans = foldSpans;
     this.diffLines = diffLines;
@@ -433,7 +479,7 @@ export class StatusView extends View {
 
   protected async render(): Promise<StyledText> {
     try {
-      this.raw = await fetchStatusData(this.root);
+      this.raw = await fetchStatusData(this.root, this.expandedElisions);
       this.pruneSelection(this.raw);
       return this.applyStatus(formatStatus(this.raw, this.expandedFiles, this.collapsedChunks, this.selected));
     } catch (e) {

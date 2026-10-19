@@ -134,6 +134,29 @@ test("recent changes are shown even when the log revset hides them", async () =>
   }
 });
 
+test("tab on elided revisions in the graph shows the changes they stand for", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  await setConfig("status.revset", 'root() | @ | description(substring:"Sibling change")');
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor(
+      "the revset with elided revisions",
+      () => statusText().includes("Changes: root() | @") && statusText().includes("(elided revisions)"),
+    );
+    assert.ok(!statusText().includes("First change"));
+    const lines = statusText().split("\n");
+    const elided = lines.findIndex((l) => l.includes("(elided revisions)"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(elided, 0, elided, 0);
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("the elided changes to appear", () => statusText().includes("First change"));
+    assert.ok(statusText().includes("Second change"));
+    assert.ok(!statusText().includes("(elided revisions)"));
+  } finally {
+    await setConfig("status.revset", undefined);
+    await vscode.commands.executeCommand("majj.status");
+  }
+});
+
 test("a directory outside any jj repo gets an explanatory status view", async () => {
   const dir = fs.mkdtempSync(path.join(path.dirname(repo), "no-repo-"));
   const doc = await vscode.workspace.openTextDocument(
