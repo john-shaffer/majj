@@ -44,6 +44,11 @@ function fileset(file: string): string {
   return `root-file:"${file.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+/** Moves changes in `revision` into the ancestors that last changed those lines (`jj absorb`). */
+export async function absorb(cwd: string, revision: string): Promise<void> {
+  await runJj(cwd, ["absorb", "--from", revision]);
+}
+
 /** Abandons `revision` (`jj abandon`). */
 export async function abandon(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["abandon", revision]);

@@ -26,6 +26,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.absorb",
+        "title": "Absorb Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.cancelEditing",
         "title": "Cancel Editing Description",
         "category": "Majj"
@@ -185,6 +190,11 @@
     ],
     "keybindings": [
       {
+        "command": "majj.absorb",
+        "key": "a",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.cancelEditing",
         "key": "ctrl+c ctrl+k",
         "when": "editorTextFocus && editorLangId == jjdescription"
@@ -304,6 +314,10 @@
       "commandPalette": [
         {
           "command": "majj.abandon",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.absorb",
           "when": "editorLangId == majj"
         },
         {

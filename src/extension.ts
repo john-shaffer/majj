@@ -9,6 +9,7 @@ import { discardLines, FileDiff } from "./diff";
 import { HelpView } from "./helpView";
 import {
   abandon,
+  absorb,
   commit,
   description,
   edit,
@@ -144,6 +145,20 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
     try {
       await abandon(view.root, change);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const absorbAtPoint = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    try {
+      await absorb(view.root, view.changeAt(editor.selection.active.line) ?? "@");
       await view.refresh();
     } catch (e) {
       void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
@@ -423,6 +438,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.abandon", abandonChange),
+    vscode.commands.registerCommand("majj.absorb", absorbAtPoint),
     vscode.commands.registerCommand("majj.cancelEditing", () => descriptionEditor.cancel()),
     vscode.commands.registerCommand("majj.commit", commitWorkingCopy),
     vscode.commands.registerCommand("majj.discard", discard),

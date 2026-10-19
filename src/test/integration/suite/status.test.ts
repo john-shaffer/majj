@@ -617,6 +617,44 @@ test("k on a change in status.majj abandons it with jj abandon", async () => {
   }
 });
 
+test("a absorbs the change at point, or the working copy, into the ancestors that last changed those lines", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const secondB = () => jj("file", "show", "-r", 'description(exact:"Second change\n")', "b.txt");
+  const lineOf = (text: string) => {
+    const lines = statusText().split("\n");
+    return lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes(text));
+  };
+  const absorbAt = async (line: number) => {
+    const editor = vscode.window.activeTextEditor!;
+    editor.selection = new vscode.Selection(line, 0, line, 0);
+    await vscode.commands.executeCommand("majj.absorb");
+  };
+  try {
+    // From the working copy, with the cursor on its changes.
+    fs.writeFileSync(path.join(repo, "b.txt"), "from working copy\n");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("M b.txt to appear", () => statusText().includes("[ ] M b.txt"));
+    await absorbAt(statusText().split("\n").indexOf("[ ] M b.txt"));
+    assert.equal(secondB(), "from working copy\n");
+    await waitFor("b.txt to leave the working copy", () => !statusText().includes("M b.txt"));
+
+    // From a change in the graph.
+    fs.writeFileSync(path.join(repo, "b.txt"), "from a change\n");
+    jj("commit", "-m", "Absorb me");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("Absorb me in graph", () => lineOf("Absorb me") >= 0);
+    await absorbAt(lineOf("Absorb me"));
+    assert.equal(secondB(), "from a change\n");
+    const absorbed = jj("diff", "--name-only", "-r", 'description(exact:"Absorb me\n")').split("\n");
+    assert.ok(!absorbed.includes("b.txt"), absorbed.join("\n"));
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("repo restored", () => !statusText().includes("b.txt") && !statusText().includes("Absorb me"));
+  }
+});
+
 test("committing with c opens a description editor only when the working copy has no description", async () => {
   await setConfig("autoRefresh.mode", "off");
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
@@ -750,6 +788,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  TAB      toggle section at point",
       "  SPC      toggle selection at point",
       "  RET      visit thing at point",
+      "  a        absorb change at point",
       "  c        commit working copy",
       "  e        edit change at point",
       "  k        discard or abandon at point",
