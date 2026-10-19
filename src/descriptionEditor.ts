@@ -64,13 +64,13 @@ export class DescriptionEditor implements vscode.Disposable {
       await new Promise<void>((resolve, reject) => server.once("error", reject).listen(socketPath, resolve));
       const editor = JSON.stringify([process.execPath, path.join(__dirname, "editorHelper.js")]);
       const draft = JSON.stringify(withDiff(await configGet(cwd, "templates.draft_commit_description")));
-      await runJj(
-        cwd,
-        ["--config", `ui.editor=${editor}`, "--config", `templates.draft_commit_description=${draft}`, ...args],
-        {
-          env: { ELECTRON_RUN_AS_NODE: "1", MAJJ_EDITOR_SOCKET: socketPath },
-        },
-      );
+      // jj ignores --config options before the subcommand when there are any
+      // after it, as there are for a selection, so these go after it too.
+      const [subcommand, ...rest] = args;
+      const config = ["--config", `ui.editor=${editor}`, "--config", `templates.draft_commit_description=${draft}`];
+      await runJj(cwd, [subcommand, ...config, ...rest], {
+        env: { ELECTRON_RUN_AS_NODE: "1", MAJJ_EDITOR_SOCKET: socketPath },
+      });
       return true;
     } catch (e) {
       if (cancelled) {

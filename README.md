@@ -35,10 +35,11 @@ open as preview tabs, which the next one you open replaces. Press `enter` on a
 file under "Working copy changes" to open the file, `tab` on a file or diff
 chunk to show or hide it (also in `change.majj`), `space` on a file, chunk, or
 changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `c` to commit the
-working copy (`jj commit`), which opens its description for editing if it has
-none, `s` to split the selected changes (`jj split`), `S` to squash changes
-(`jj squash`), `X` to restore changes (`jj restore`), or `k` to discard a file,
-chunk, or changed lines after a `y`/`n` confirmation.
+selected changes, or the whole working copy if none are selected (`jj commit`),
+opening the description for editing if it has none, `s` to split the selected
+changes (`jj split`), `S` to squash changes (`jj squash`), `X` to restore
+changes (`jj restore`), or `k` to discard a file, chunk, or changed lines after
+a `y`/`n` confirmation.
 
 When jj needs a description, majj opens jj's draft in an editor tab, with the
 change's diff below a `JJ: ignore-rest` line, which jj ignores along with

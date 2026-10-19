@@ -689,6 +689,59 @@ test("committing with c opens a description editor only when the working copy ha
   }
 });
 
+test("committing with c commits only the selected changes when there are any", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const changedFiles = (rev: string) => jj("diff", "-r", rev, "--name-only").trim().split("\n").sort();
+  const activeLanguage = () => vscode.window.activeTextEditor?.document.languageId;
+  fs.writeFileSync(path.join(repo, "b.txt"), "b1\nb2\nb3\n");
+  try {
+    jj("describe", "-m", "");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("M b.txt to appear", () => statusText().includes("[ ] M b.txt"));
+    // The editor tab replaces the status view's TextEditor, so look it up each time.
+    const lineOf = (text: string) => statusText().split("\n").indexOf(text);
+    const runAt = async (line: number, command: string) => {
+      vscode.window.activeTextEditor!.selection = new vscode.Selection(line, 0, line, 0);
+      await vscode.commands.executeCommand(command);
+    };
+    const select = (line: number) => runAt(line, "majj.toggleSelect");
+    await runAt(lineOf("[ ] M b.txt"), "majj.toggleFold");
+    await waitFor("b.txt diff to expand", () => statusText().includes("[ ] +b2"));
+    await select(lineOf("[ ] +b2"));
+    await waitFor("+b2 to be selected", () => statusText().includes("[●] +b2"));
+
+    // The editor shows only the selected changes.
+    const committing = vscode.commands.executeCommand("majj.commit");
+    await waitFor("the description editor", () => activeLanguage() === "jjdescription");
+    const diff = vscode.window.activeTextEditor!.document.getText().split("JJ: ignore-rest")[1];
+    assert.ok(diff.includes("+b2") && !diff.includes("+b1") && !diff.includes("c.txt"), diff);
+    await vscode.window.activeTextEditor!.edit((b) => b.insert(new vscode.Position(0, 0), "Selected line"));
+    await vscode.commands.executeCommand("majj.finishEditing");
+    await committing;
+    assert.equal(jj("log", "--no-graph", "-r", "@-", "-T", "description").trim(), "Selected line");
+    assert.equal(jj("file", "show", "-r", "@-", "b.txt"), "b\nb2\n");
+    assert.ok(changedFiles("@").includes("c.txt"));
+    assert.equal(fs.readFileSync(path.join(repo, "b.txt"), "utf8"), "b1\nb2\nb3\n");
+
+    // With a description already, a selected file is committed without the editor.
+    jj("describe", "-m", "Selected file");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("selection cleared", () => statusText().includes("[ ] A c.txt") && !statusText().includes("[●]"));
+    await select(lineOf("[ ] A c.txt"));
+    await waitFor("c.txt to be selected", () => statusText().includes("[●] A c.txt"));
+    await vscode.commands.executeCommand("majj.commit");
+    assert.equal(jj("log", "--no-graph", "-r", "@-", "-T", "description").trim(), "Selected file");
+    assert.deepEqual(changedFiles("@-"), ["c.txt"]);
+    assert.ok(changedFiles("@").includes("b.txt"));
+  } finally {
+    jj("op", "restore", savedOp);
+    jj("restore", "b.txt");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("repo restored", () => statusText().includes("[ ] A c.txt") && !statusText().includes("b.txt"));
+  }
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");

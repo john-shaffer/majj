@@ -49,9 +49,12 @@ export async function abandon(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["abandon", revision]);
 }
 
-/** Commits the working copy change with its existing description (`jj commit`). */
-export async function commit(cwd: string): Promise<void> {
-  await runJj(cwd, ["commit", "--config", 'ui.editor="true"']);
+/**
+ * Commits the selected working copy changes (or all working copy changes if
+ * none are selected) with the working copy's existing description (`jj commit`).
+ */
+export async function commit(cwd: string, selection?: SelectedChanges): Promise<void> {
+  await runWithSelection(cwd, ["commit", "--config", 'ui.editor="true"'], selection);
 }
 
 /** The description of `revision`. */

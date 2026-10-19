@@ -22,6 +22,7 @@ import {
   split,
   squash,
   undo,
+  withSelection,
 } from "./jj";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
@@ -155,12 +156,14 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       return;
     }
     try {
+      const selection = await buildSelectedChanges(view);
       if ((await description(view.root, "@")).trim()) {
-        await commit(view.root);
-      } else if (!(await descriptionEditor.run(view.root, ["commit"]))) {
+        await commit(view.root, selection);
+      } else if (!(await withSelection(selection, (args) => descriptionEditor.run(view.root, ["commit", ...args])))) {
         vscode.window.setStatusBarMessage("Commit canceled.", 4000);
         return;
       }
+      view.clearSelection();
       await view.refresh();
     } catch (e) {
       void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
