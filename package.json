@@ -173,6 +173,16 @@
         "editor.wordWrap": "off"
       }
     },
+    "grammars": [
+      {
+        "language": "jjdescription",
+        "scopeName": "text.jjdescription",
+        "path": "./syntaxes/jjdescription.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.diff.jjdescription": "diff"
+        }
+      }
+    ],
     "keybindings": [
       {
         "command": "majj.abandon",
@@ -282,7 +292,8 @@
         ],
         "extensions": [
           ".jjdescription"
-        ]
+        ],
+        "configuration": "./languages/jjdescription.language-configuration.json"
       },
       {
         "id": "majj",

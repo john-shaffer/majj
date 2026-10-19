@@ -1,0 +1,61 @@
+{
+  "name": "jj Description",
+  "scopeName": "text.jjdescription",
+  "patterns": [
+    {
+      "comment": "The diff below JJ: ignore-rest, which jj drops along with the line itself.",
+      "name": "meta.embedded.diff.jjdescription",
+      "begin": "^(?=JJ: ignore-rest\\s*$)",
+      "end": "\\z",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "source.diff"
+        }
+      ]
+    },
+    {
+      "comment": "The description, with subject lines over 50 and 72 characters marked as in git commit messages.",
+      "name": "meta.scope.message.jjdescription",
+      "begin": "^(?!JJ:)",
+      "end": "^(?=JJ:)",
+      "patterns": [
+        {
+          "name": "meta.scope.subject.jjdescription",
+          "match": "\\G.{0,50}(.{0,22}(.*))$",
+          "captures": {
+            "1": {
+              "name": "invalid.deprecated.line-too-long.jjdescription"
+            },
+            "2": {
+              "name": "invalid.illegal.line-too-long.jjdescription"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "include": "#comment"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "comment": "Lines that jj removes, including its list of changed files.",
+      "name": "comment.line.jjdescription",
+      "match": "^JJ:(?:\\s+(?:([AC] .*)|([MR] .*)|(D .*))|.*)$",
+      "captures": {
+        "1": {
+          "name": "markup.inserted.jjdescription"
+        },
+        "2": {
+          "name": "markup.changed.jjdescription"
+        },
+        "3": {
+          "name": "markup.deleted.jjdescription"
+        }
+      }
+    }
+  }
+}

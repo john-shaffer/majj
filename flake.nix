@@ -37,9 +37,11 @@
                   fileset = lib.fileset.unions [
                     ./LICENSE
                     ./README.md
+                    ./languages
                     ./package-lock.json
                     ./package.json
                     ./src
+                    ./syntaxes
                     ./tsconfig.json
                   ];
                 };
@@ -115,7 +117,7 @@
                 runHook preInstall
                 dir=$out/share/vscode/extensions/${passthru.vscodeExtUniqueId}
                 mkdir -p $dir
-                cp -r LICENSE README.md out package.json $dir/
+                cp -r LICENSE README.md languages out package.json syntaxes $dir/
                 rm -rf $dir/out/test
                 runHook postInstall
               '';

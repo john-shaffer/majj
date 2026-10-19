@@ -10,6 +10,7 @@ export function test(name: string, fn: TestFn) {
 }
 
 export async function run(): Promise<void> {
+  require("./grammar.test");
   require("./status.test");
   let failed = 0;
   for (const { name, fn } of tests) {
