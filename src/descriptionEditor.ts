@@ -4,7 +4,7 @@ import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { runJj } from "./jj";
+import { configGet, runJj } from "./jj";
 
 /**
  * Edits descriptions for jj in VS Code tabs. jj's editor is set to
@@ -24,11 +24,11 @@ export class DescriptionEditor implements vscode.Disposable {
   });
 
   /**
-   * Runs jj with `args`, editing any description jj asks for in a tab below
-   * which `diffRevision`'s diff is shown. Resolves to false if the edit was
-   * cancelled.
+   * Runs jj with `args`, editing any description jj asks for in a tab, below
+   * which the diff of the commit being described is shown. Resolves to false
+   * if the edit was cancelled.
    */
-  async run(cwd: string, args: string[], diffRevision: string): Promise<boolean> {
+  async run(cwd: string, args: string[]): Promise<boolean> {
     let socketDir: string | undefined;
     let socketPath: string;
     if (process.platform === "win32") {
@@ -50,9 +50,7 @@ export class DescriptionEditor implements vscode.Disposable {
         connection.off("data", onData);
         let finished = false;
         try {
-          const uri = vscode.Uri.file(request.slice(0, end));
-          await appendDiff(uri, cwd, diffRevision);
-          finished = await this.edit(uri);
+          finished = await this.edit(vscode.Uri.file(request.slice(0, end)));
         } catch (e) {
           // Reply anyway, or jj would wait forever.
           void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
@@ -65,9 +63,14 @@ export class DescriptionEditor implements vscode.Disposable {
     try {
       await new Promise<void>((resolve, reject) => server.once("error", reject).listen(socketPath, resolve));
       const editor = JSON.stringify([process.execPath, path.join(__dirname, "editorHelper.js")]);
-      await runJj(cwd, ["--config", `ui.editor=${editor}`, ...args], {
-        env: { ELECTRON_RUN_AS_NODE: "1", MAJJ_EDITOR_SOCKET: socketPath },
-      });
+      const draft = JSON.stringify(withDiff(await configGet(cwd, "templates.draft_commit_description")));
+      await runJj(
+        cwd,
+        ["--config", `ui.editor=${editor}`, "--config", `templates.draft_commit_description=${draft}`, ...args],
+        {
+          env: { ELECTRON_RUN_AS_NODE: "1", MAJJ_EDITOR_SOCKET: socketPath },
+        },
+      );
       return true;
     } catch (e) {
       if (cancelled) {
@@ -130,20 +133,22 @@ export class DescriptionEditor implements vscode.Disposable {
 // jj drops this line and everything after it.
 const isIgnoreRest = (line: string) => line.trim() === "JJ: ignore-rest";
 
+const VERBOSE_HEADER = [
+  "JJ: ignore-rest",
+  "JJ: Do not modify or remove the line above.",
+  "JJ: Everything below it will be ignored.",
+];
+
 /**
- * Appends the diff of `revision` to the description in `uri`, after a line
- * that makes jj ignore it, unless the user's draft template already has one.
+ * Adds the diff to the draft description `template`, after a line that makes
+ * jj ignore it. The template renders the commit jj is about to describe, so
+ * this is its exact diff even when only some changes go into it. A template
+ * that already has an ignore-rest line is left alone.
  */
-async function appendDiff(uri: vscode.Uri, cwd: string, revision: string): Promise<void> {
-  const draft = await fs.readFile(uri.fsPath, "utf8");
-  if (draft.split("\n").some(isIgnoreRest)) {
-    return;
+function withDiff(template: string): string {
+  if (template.includes("ignore-rest")) {
+    return template;
   }
-  // jj is waiting on the editor, so leave the working copy to it.
-  const diff = await runJj(cwd, ["diff", "--git", "--ignore-working-copy", "-r", revision]);
-  const separator = draft.endsWith("\n") || draft === "" ? "" : "\n";
-  await fs.appendFile(
-    uri.fsPath,
-    `${separator}JJ: ignore-rest\nJJ: Do not modify or remove the line above.\nJJ: Everything below it will be ignored.\n${diff}`,
-  );
+  const header = JSON.stringify(`\n${VERBOSE_HEADER.join("\n")}\n`);
+  return `concat(${template}, ${header}, self.diff().git())`;
 }
