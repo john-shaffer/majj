@@ -138,14 +138,24 @@ export interface SelectedChanges {
 }
 
 async function runWithSelection(cwd: string, baseArgs: string[], selection?: SelectedChanges): Promise<void> {
+  await withSelection(selection, (args) => runJj(cwd, [...baseArgs, ...args]));
+}
+
+/**
+ * Calls `run` with the arguments that limit a jj command to `selection`: its
+ * paths, plus a diff editor that writes partially selected files' content.
+ * No selection means no arguments, so the command applies to everything.
+ */
+export async function withSelection<T>(
+  selection: SelectedChanges | undefined,
+  run: (args: string[]) => Promise<T>,
+): Promise<T> {
   if (!selection) {
-    await runJj(cwd, baseArgs);
-    return;
+    return run([]);
   }
   const filesets = selection.paths.map(fileset);
   if (selection.partialFiles.size === 0) {
-    await runJj(cwd, [...baseArgs, "--", ...filesets]);
-    return;
+    return run(["--", ...filesets]);
   }
   const stagedDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "majj-select-"));
   try {
@@ -155,8 +165,7 @@ async function runWithSelection(cwd: string, baseArgs: string[], selection?: Sel
       await fs.promises.writeFile(target, content);
     }
     const editArgs = JSON.stringify(["-rf", `${stagedDir}/.`, "$right/"]);
-    await runJj(cwd, [
-      ...baseArgs,
+    return await run([
       "--tool",
       "majj",
       "--config",
