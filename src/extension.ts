@@ -13,6 +13,7 @@ import {
   commit,
   description,
   edit,
+  entryIds,
   findRoot,
   newChange,
   next,
@@ -55,6 +56,11 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.window.visibleTextEditors.filter((e) => e.document.uri.toString() === view.uri.toString());
 
   const viewFor = (uri: vscode.Uri) => views.get(uri.toString());
+
+  const activeView = () => {
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    return uri && viewFor(uri);
+  };
 
   const getView = (uri: vscode.Uri) => {
     let view = viewFor(uri);
@@ -268,9 +274,40 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
 
   const newOnChange = statusCommand((view, editor) => newChange(view.root, changeAtPoint(view, editor) ?? "@"));
 
-  const moveToNext = statusCommand((view) => next(view.root));
+  /**
+   * Shows the parent or child of the change in the active change view, if it
+   * has just one (other than the root), replacing the view's preview tab.
+   */
+  const showNeighbor = async (view: ChangeView, direction: "parent" | "child") => {
+    const change = view.uri.fragment;
+    try {
+      const revset = direction === "parent" ? `${change}- ~ root()` : `${change}+`;
+      const [neighbor, ...others] = await entryIds(view.root, revset);
+      if (!neighbor || others.length > 0) {
+        const count = others.length + (neighbor ? 1 : 0);
+        vscode.window.setStatusBarMessage(
+          `${change.slice(0, 8)} has ${count} ${direction === "parent" ? "parents" : "children"}`,
+          4000,
+        );
+        return;
+      }
+      await showView(ChangeView.uriFor(view.root, neighbor), true, columnOf(view.uri));
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
 
-  const moveToPrev = statusCommand((view) => prev(view.root));
+  /** In a change view, shows the next change; elsewhere, moves the working copy to it (`jj next`). */
+  const moveToNext = async () => {
+    const view = activeView();
+    await (view instanceof ChangeView ? showNeighbor(view, "child") : statusCommand((v) => next(v.root))());
+  };
+
+  /** In a change view, shows the previous change; elsewhere, moves the working copy to it (`jj prev`). */
+  const moveToPrev = async () => {
+    const view = activeView();
+    await (view instanceof ChangeView ? showNeighbor(view, "parent") : statusCommand((v) => prev(v.root))());
+  };
 
   const rebaseChange = statusCommand(async (view, editor) => {
     const source = changeAtPoint(view, editor) ?? "@";
