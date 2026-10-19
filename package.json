@@ -66,6 +66,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.new",
+        "title": "New Change on Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.rebase",
         "title": "Rebase Change at Point",
         "category": "Majj"
@@ -240,6 +245,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.new",
+        "key": "n",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.rebase",
         "key": "r",
         "when": "editorTextFocus && editorLangId == majj"
@@ -356,6 +366,10 @@
         },
         {
           "command": "majj.help",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.new",
           "when": "editorLangId == majj"
         },
         {

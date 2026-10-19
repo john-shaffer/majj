@@ -72,6 +72,11 @@ export async function edit(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["edit", revision]);
 }
 
+/** Starts a new, empty change on top of `revision` (`jj new`). */
+export async function newChange(cwd: string, revision: string): Promise<void> {
+  await runJj(cwd, ["new", revision]);
+}
+
 const REBASE_SOURCE_FLAGS = new Set(["-b", "--branch", "-r", "--revision", "-s", "--source"]);
 
 /**

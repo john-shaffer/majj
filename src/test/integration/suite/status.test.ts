@@ -698,6 +698,33 @@ test("d edits the description of the change at point, or of the working copy, in
   }
 });
 
+test("n starts a new change on the change at point, or on the working copy", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const log = (rev: string, template: string) => jj("log", "--no-graph", "-r", rev, "-T", template).trim();
+  const newAt = async (line: (lines: string[]) => number) => {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("the graph", () => statusText().includes("Changes:"));
+    const at = line(statusText().split("\n"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(at, 0, at, 0);
+    await vscode.commands.executeCommand("majj.new");
+  };
+  try {
+    const workingCopy = log("@", "change_id");
+    await newAt((lines) => lines.indexOf("[ ] A c.txt"));
+    assert.equal(log("@-", "change_id"), workingCopy);
+    assert.equal(log("@", 'empty ++ "|" ++ description'), "true|");
+
+    await newAt((lines) => lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change")));
+    assert.equal(log("@-", "description"), "Second change");
+    assert.equal(log("@", 'empty ++ "|" ++ description'), "true|");
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("repo restored", () => statusText().includes("[ ] A c.txt"));
+  }
+});
+
 test("committing with c opens a description editor only when the working copy has no description", async () => {
   await setConfig("autoRefresh.mode", "off");
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
@@ -836,6 +863,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  d        describe change at point",
       "  e        edit change at point",
       "  k        discard or abandon at point",
+      "  n        new change on change at point",
       "  r        rebase change at point",
       "  s        split selected changes",
       "  S        squash changes",

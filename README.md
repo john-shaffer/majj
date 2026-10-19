@@ -30,10 +30,10 @@ Press `g` in the view to refresh it, `?` to open `help.majj`, `q` to close a
 view, `ctrl+z` / `ctrl+y` to run `jj undo` / `jj redo`, `enter` on a change in
 the graph to open `change.majj` with its `jj show` output, `k` on a change or
 commit to run `jj abandon` on it, `a` to run `jj absorb` from it (or from the
-working copy elsewhere), `d` to edit its description (`jj describe`), `e` to
-run `jj edit` on it, or `r` to run `jj rebase` on it. Like magit's revision
-buffer, `change.majj` and `help.majj` open as preview tabs, which the next one
-you open replaces. Press `enter` on a
+working copy elsewhere), `d` to edit its description (`jj describe`), `e` to run
+`jj edit` on it, `n` to start a new change on it (`jj new`), or `r` to run
+`jj rebase` on it. Like magit's revision buffer, `change.majj` and `help.majj`
+open as preview tabs, which the next one you open replaces. Press `enter` on a
 file under "Working copy changes" to open the file, `tab` on a file or diff
 chunk to show or hide it (also in `change.majj`), `space` on a file, chunk, or
 changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `c` to commit the
@@ -66,6 +66,7 @@ or the second if the first is active, splitting the editor if there's only one. 
 | `majj.edit`                          | `e`             | in the status view         |
 | `majj.finishEditing`                 | `ctrl+c ctrl+c` | in a description editor    |
 | `majj.help`                          | `?`             | in majj views              |
+| `majj.new`                           | `n`             | in the status view         |
 | `majj.rebase`                        | `r`             | in the status view         |
 | `majj.redo`                          | `ctrl+y`        | in majj views              |
 | `majj.refresh`                       | `g`             | in majj views              |

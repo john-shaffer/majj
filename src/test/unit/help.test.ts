@@ -22,6 +22,7 @@ test("default keybindings render the essential commands section", () => {
     "  d        describe change at point",
     "  e        edit change at point",
     "  k        discard or abandon at point",
+    "  n        new change on change at point",
     "  r        rebase change at point",
     "  s        split selected changes",
     "  S        squash changes",
@@ -45,9 +46,10 @@ test("default keybindings render the essential commands section", () => {
     { line: 11, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 12, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 13, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 14, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 14, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 15, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 16, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 16, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 17, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
   ]);
 });
 
@@ -73,6 +75,7 @@ test("user keybindings override defaults and widen the key column when needed", 
     "  d           describe change at point",
     "  e           edit change at point",
     "  k           discard or abandon at point",
+    "  n           new change on change at point",
     "  r           rebase change at point",
     "  s           split selected changes",
     "  S           squash changes",

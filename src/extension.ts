@@ -14,6 +14,7 @@ import {
   description,
   edit,
   findRoot,
+  newChange,
   rebase,
   redo,
   restore,
@@ -323,6 +324,20 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
   };
 
+  const newOnChange = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    try {
+      await newChange(view.root, view.changeAt(editor.selection.active.line) ?? "@");
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   const rebaseChange = async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
@@ -465,6 +480,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.finishEditing", () => descriptionEditor.finish()),
     vscode.commands.registerCommand("majj.help", showHelp),
+    vscode.commands.registerCommand("majj.new", newOnChange),
     vscode.commands.registerCommand("majj.rebase", rebaseChange),
     vscode.commands.registerCommand("majj.redo", runRedo),
     vscode.commands.registerCommand("majj.refresh", refresh),
