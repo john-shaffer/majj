@@ -11,7 +11,7 @@ import {
   parseFiles,
   selectionPrefix,
 } from "./diff";
-import { configGet, JjError, runJj } from "./jj";
+import { configGet, ENTRY_ID, entryIds, JjError, runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
 import { WorkingCopyFile, workingCopyFiles } from "./workingCopy";
 
@@ -22,7 +22,6 @@ const NO_REPO = /There is no jj repo in/;
 // lines can be mapped to changes whatever the user's log template looks like.
 // A divergent change ID is ambiguous, so those entries use their commit ID.
 const MARK = /\x1e([^\x1f]*)\x1f/;
-const ENTRY_ID = "stringify(if(divergent, commit_id, change_id))";
 const markedTemplate = (template: string) => `"\\x1e" ++ ${ENTRY_ID} ++ "\\x1f" ++ (${template})`;
 // jj's line for an edge through changes the revset leaves out, under the node it comes from.
 const ELIDED = /^[^~]*~\s+\(elided revisions\)\s*$/;
@@ -230,11 +229,8 @@ async function withElisions(
   const elided = (c: string) => `((${base} & ::present(${c}))::present(${c}))`;
   await Promise.all(
     [...expanded].map(async (c) => {
-      const args = ["log", "--no-graph", "--ignore-working-copy", "-r", `${elided(c)} ~ ${base}`];
-      for (const id of (await runJj(root, [...args, "-T", `${ENTRY_ID} ++ "\\n"`])).split("\n")) {
-        if (id) {
-          revealedBy.set(id, c);
-        }
+      for (const id of await entryIds(root, `${elided(c)} ~ ${base}`)) {
+        revealedBy.set(id, c);
       }
     }),
   );

@@ -34,6 +34,26 @@ export async function configGet(cwd: string, name: string): Promise<string> {
   return (await runJj(cwd, ["config", "get", name])).trim();
 }
 
+/**
+ * A template for the ID majj uses for a commit: its change ID, or for a
+ * divergent change, which that ID doesn't identify, its commit ID.
+ */
+export const ENTRY_ID = "stringify(if(divergent, commit_id, change_id))";
+
+/** The IDs (see `ENTRY_ID`) of the commits in `revset`. */
+export async function entryIds(cwd: string, revset: string): Promise<string[]> {
+  const out = await runJj(cwd, [
+    "log",
+    "--no-graph",
+    "--ignore-working-copy",
+    "-r",
+    revset,
+    "-T",
+    `${ENTRY_ID} ++ "\\n"`,
+  ]);
+  return out.split("\n").filter((id) => id);
+}
+
 /** The root of the jj workspace containing `dir`. */
 export async function findRoot(dir: string): Promise<string> {
   return (await runJj(dir, ["root"])).trim();
