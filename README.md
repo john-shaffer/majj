@@ -34,10 +34,11 @@ commit to run `jj abandon` on it, `e` to run `jj edit` on it, or `r` to run
 open as preview tabs, which the next one you open replaces. Press `enter` on a
 file under "Working copy changes" to open the file, `tab` on a file or diff
 chunk to show or hide it (also in `change.majj`), `space` on a file, chunk, or
-changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `s` to split the
-selected changes (`jj split`), `S` to squash changes (`jj squash`), `X` to
-restore changes (`jj restore`), or `k` to discard a file, chunk, or changed
-lines after a `y`/`n` confirmation.
+changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `c` to commit the
+working copy (`jj commit`), which asks for a message if it has no description,
+`s` to split the selected changes (`jj split`), `S` to squash changes
+(`jj squash`), `X` to restore changes (`jj restore`), or `k` to discard a file,
+chunk, or changed lines after a `y`/`n` confirmation.
 
 majj opens these in an editor group other than the active one: the first group,
 or the second if the first is active, splitting the editor if there's only one. An open status view is shown in the group it's already in.
@@ -47,6 +48,7 @@ or the second if the first is active, splitting the editor if there's only one. 
 | Command                              | Default   | When                         |
 | ------------------------------------ | --------- | ---------------------------- |
 | `majj.abandon`                       | `a`       | in the status view           |
+| `majj.commit`                        | `c`       | in the status view           |
 | `majj.discard`                       | `k`       | in the status view           |
 | `majj.edit`                          | `e`       | in the status view           |
 | `majj.help`                          | `?`       | in majj views                |

@@ -26,6 +26,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.commit",
+        "title": "Commit Working Copy",
+        "category": "Majj"
+      },
+      {
         "command": "majj.discard",
         "title": "Discard at Point",
         "category": "Majj"
@@ -164,6 +169,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.commit",
+        "key": "c",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.discard",
         "key": "k",
         "when": "editorTextFocus && editorLangId == majj"
@@ -258,6 +268,10 @@
       "commandPalette": [
         {
           "command": "majj.abandon",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.commit",
           "when": "editorLangId == majj"
         },
         {

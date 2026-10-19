@@ -44,6 +44,19 @@ export async function abandon(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["abandon", revision]);
 }
 
+/**
+ * Commits the working copy change (`jj commit`) with `message`, or else with
+ * its existing description.
+ */
+export async function commit(cwd: string, message?: string): Promise<void> {
+  await runJj(cwd, message === undefined ? ["commit", "--config", 'ui.editor="true"'] : ["commit", "-m", message]);
+}
+
+/** The description of `revision`. */
+export async function description(cwd: string, revision: string): Promise<string> {
+  return runJj(cwd, ["log", "--no-graph", "-r", revision, "-T", "description"]);
+}
+
 /** Makes `revision` the working copy change (`jj edit`). */
 export async function edit(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["edit", revision]);

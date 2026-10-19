@@ -18,6 +18,7 @@ test("default keybindings render the essential commands section", () => {
     "  SPC      toggle selection at point",
     "  RET      visit thing at point",
     "  a        abandon change at point",
+    "  c        commit working copy",
     "  e        edit change at point",
     "  k        discard at point",
     "  r        rebase change at point",
@@ -41,9 +42,10 @@ test("default keybindings render the essential commands section", () => {
     { line: 9, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 10, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 11, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 12, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 12, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
     { line: 13, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
-    { line: 14, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 14, start: 2, end: 8, style: { fg: { kind: "ansi", index: 4 } } },
+    { line: 15, start: 2, end: 3, style: { fg: { kind: "ansi", index: 4 } } },
   ]);
 });
 
@@ -65,6 +67,7 @@ test("user keybindings override defaults and widen the key column when needed", 
     "  SPC         toggle selection at point",
     "  ctrl+enter  visit thing at point",
     "  a           abandon change at point",
+    "  c           commit working copy",
     "  e           edit change at point",
     "  k           discard at point",
     "  r           rebase change at point",

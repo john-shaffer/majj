@@ -587,6 +587,47 @@ test("abandoning a change in status.majj with a runs jj abandon", async () => {
   }
 });
 
+test("committing with c prompts for a message only when the working copy has none", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const description = (rev: string) => jj("log", "--no-graph", "-r", rev, "-T", "description").trim();
+  try {
+    jj("describe", "-m", "");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("A c.txt to appear", () => statusText().includes("[ ] A c.txt"));
+
+    // Cancelling the prompt leaves the working copy alone.
+    const cancelled = vscode.commands.executeCommand("majj.commit");
+    await waitFor("commit message prompt", () => api.confirmPrompt() !== undefined);
+    assert.equal(api.confirmPrompt(), "Commit message");
+    api.answerConfirmation("");
+    await cancelled;
+    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "empty").trim(), "false");
+
+    const committing = vscode.commands.executeCommand("majj.commit");
+    await waitFor("commit message prompt", () => api.confirmPrompt() !== undefined);
+    api.answerConfirmation("Committed from majj");
+    await committing;
+    assert.equal(description("@-"), "Committed from majj");
+    assert.equal(description("@"), "");
+    await waitFor("c.txt to leave the working copy", () => !statusText().includes("A c.txt"));
+
+    // An existing description is kept without prompting.
+    fs.writeFileSync(path.join(repo, "described.txt"), "x\n");
+    jj("describe", "-m", "Already described");
+    await vscode.commands.executeCommand("majj.commit");
+    assert.equal(api.confirmPrompt(), undefined);
+    assert.equal(description("@-"), "Already described");
+    assert.equal(jj("log", "--no-graph", "-r", "@-", "-T", "empty").trim(), "false");
+    assert.equal(description("@"), "");
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.refresh");
+    await waitFor("repo restored", () => statusText().includes("[ ] A c.txt"));
+  }
+});
+
 test("help command opens help.majj with the essential commands", async () => {
   await vscode.commands.executeCommand("majj.status");
   await vscode.commands.executeCommand("majj.help");
@@ -604,6 +645,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  SPC      toggle selection at point",
       "  RET      visit thing at point",
       "  a        abandon change at point",
+      "  c        commit working copy",
       "  e        edit change at point",
       "  k        discard at point",
       "  r        rebase change at point",

@@ -8,6 +8,8 @@ import { discardLines } from "./diff";
 import { HelpView } from "./helpView";
 import {
   abandon,
+  commit,
+  description,
   edit,
   findRoot,
   rebase,
@@ -135,6 +137,27 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     }
     try {
       await abandon(view.root, change);
+      await view.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const commitWorkingCopy = async () => {
+    const editor = vscode.window.activeTextEditor;
+    const view = editor && viewFor(editor.document.uri);
+    if (!editor || !(view instanceof StatusView)) {
+      return;
+    }
+    try {
+      let message: string | undefined;
+      if (!(await description(view.root, "@")).trim()) {
+        message = await promptInput("Commit message");
+        if (!message) {
+          return;
+        }
+      }
+      await commit(view.root, message);
       await view.refresh();
     } catch (e) {
       void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
@@ -384,6 +407,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     changed,
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.abandon", abandonChange),
+    vscode.commands.registerCommand("majj.commit", commitWorkingCopy),
     vscode.commands.registerCommand("majj.discard", discard),
     vscode.commands.registerCommand("majj.edit", editChange),
     vscode.commands.registerCommand("majj.help", showHelp),
