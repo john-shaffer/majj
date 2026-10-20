@@ -233,9 +233,13 @@ export async function split(cwd: string, selection: SelectedChanges): Promise<vo
   await runWithSelection(cwd, ["split", "-m", ""], selection);
 }
 
-/** Squashes the selected working copy changes (or all working copy changes if none are selected) into `@-` (`jj squash`). */
-export async function squash(cwd: string, selection?: SelectedChanges): Promise<void> {
-  await runWithSelection(cwd, ["squash", "--config", 'ui.editor="true"'], selection);
+/**
+ * Squashes the selected working copy changes (or all working copy changes if
+ * none are selected) into `into`, or else `@-` (`jj squash`).
+ */
+export async function squash(cwd: string, selection?: SelectedChanges, into?: string): Promise<void> {
+  const args = ["squash", "--config", 'ui.editor="true"', ...(into ? ["--into", into] : [])];
+  await runWithSelection(cwd, args, selection);
 }
 
 /** Undoes the last operation (`jj undo`). */

@@ -561,6 +561,31 @@ test("selecting working copy changes with space then splitting with s and squash
   }
 });
 
+test("S on a change squashes the working copy's changes into it", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const first = 'description(exact:"First change\n")';
+  fs.writeFileSync(path.join(repo, "into-first.txt"), "x\n");
+  try {
+    // Without a description of its own, @ leaves First change's alone.
+    jj("describe", "-m", "");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("A into-first.txt", () => statusText().includes("A into-first.txt"));
+    const lines = statusText().split("\n");
+    const line = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("First change"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(line, 0, line, 0);
+    await vscode.commands.executeCommand("majj.squash");
+    assert.equal(jj("file", "show", "-r", first, "into-first.txt"), "x\n");
+    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "empty").trim(), "true");
+    assert.equal(jj("log", "--no-graph", "-r", first, "-T", "description").trim(), "First change");
+  } finally {
+    jj("op", "restore", savedOp);
+    fs.rmSync(path.join(repo, "into-first.txt"), { force: true });
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("repo restored", () => !statusText().includes("into-first.txt"));
+  }
+});
+
 test("rebasing a change in status.majj prompts for destination and runs jj rebase", async () => {
   await setConfig("autoRefresh.mode", "off");
   const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;

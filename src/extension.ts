@@ -267,8 +267,11 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     view.clearSelection();
   });
 
-  const squashSelected = statusCommand(async (view) => {
-    await squash(view.root, await buildSelectedChanges(view));
+  const squashSelected = statusCommand(async (view, editor) => {
+    // Into the change at point, unless that's the working copy itself.
+    const change = changeAtPoint(view, editor);
+    const [workingCopy] = change ? await entryIds(view.root, "@") : [];
+    await squash(view.root, await buildSelectedChanges(view), change === workingCopy ? undefined : change);
     view.clearSelection();
   });
 
