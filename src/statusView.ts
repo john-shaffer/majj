@@ -8,6 +8,7 @@ import {
   FileDiff,
   fileSelectionState,
   FoldSpan,
+  newLineNumber,
   parseFiles,
   selectionPrefix,
 } from "./diff";
@@ -279,6 +280,17 @@ export class StatusView extends View {
   /** The ID of the change shown on a line of the change graph. */
   changeAt(line: number): string | undefined {
     return this.changes.get(line);
+  }
+
+  /** The working copy file, relative to the root, and 1-based line of it that a diff line shows. */
+  locationAt(line: number): { path: string; line: number } | undefined {
+    const diffLine = this.diffLines.get(line);
+    return (
+      diffLine && {
+        path: diffLine.file.path,
+        line: newLineNumber(diffLine.file, diffLine.chunkIndex, diffLine.lineIndex),
+      }
+    );
   }
 
   /** The working copy file shown on a line, relative to the root. */

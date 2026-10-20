@@ -7,6 +7,7 @@ import {
   changedLinesByChunk,
   discardLines,
   fileSelectionState,
+  newLineNumber,
   parseFiles,
 } from "../../diff";
 
@@ -319,4 +320,32 @@ test("appendFileDiff renders selection markers [ ], [◐], and [●] for chunks 
     "     c",
     "[ ] +d",
   ]);
+});
+
+test("newLineNumber maps diff lines to lines of the new file", () => {
+  const [file] = parseFiles(
+    `diff --git a/f b/f
+--- a/f
++++ b/f
+@@ -3,4 +3,4 @@
+ three
+-four
++FOUR
++four and a half
+ five
+@@ -20,2 +21,0 @@
+-twenty
+-twenty-one
+`.split("\n"),
+  );
+  // The chunk header goes to the chunk's first line.
+  assert.equal(newLineNumber(file, 0), 3);
+  assert.deepEqual(
+    [0, 1, 2, 3, 4].map((j) => newLineNumber(file, 0, j)),
+    // A removed line goes to where it was, which the next new line now has.
+    [3, 4, 4, 5, 6],
+  );
+  // With no new lines, a chunk is where they were removed from.
+  assert.equal(newLineNumber(file, 1), 21);
+  assert.equal(newLineNumber(file, 1, 1), 21);
 });

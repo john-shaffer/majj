@@ -247,6 +247,56 @@ test("visiting a working copy change opens the file", async () => {
   assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, path.join(repo, "c.txt"));
 });
 
+test("visiting a diff line opens its file at that line", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const filePath = path.join(repo, "b.txt");
+  fs.writeFileSync(filePath, "b1\nb2\nb3\n");
+  const visitAt = async (line: number) => {
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(line, 0, line, 0);
+    await vscode.commands.executeCommand("majj.visit");
+  };
+  const opened = () => {
+    const editor = vscode.window.activeTextEditor!;
+    return [editor.document.uri.fsPath, editor.selection.active.line];
+  };
+  try {
+    // A working copy diff line in the status view.
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("M b.txt", () => statusText().includes("[ ] M b.txt"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(
+      statusText().split("\n").indexOf("[ ] M b.txt"),
+      0,
+      statusText().split("\n").indexOf("[ ] M b.txt"),
+      0,
+    );
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("b.txt's diff", () => statusText().includes("[ ] +b2"));
+    await visitAt(statusText().split("\n").indexOf("[ ] +b2"));
+    assert.deepEqual(opened(), [filePath, 1]);
+
+    // A diff line and a file line in change.majj.
+    await vscode.commands.executeCommand("majj.status");
+    const lines = statusText().split("\n");
+    await visitAt(lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change")));
+    const change = vscode.window.activeTextEditor!.document;
+    await waitFor("the change", () => change.getText().includes("+b"));
+    await visitAt(change.getText().split("\n").indexOf("+b"));
+    assert.deepEqual(opened(), [filePath, 0]);
+    await vscode.window.showTextDocument(change);
+    await visitAt(
+      change
+        .getText()
+        .split("\n")
+        .findIndex((l) => l.startsWith("new file   b.txt")),
+    );
+    assert.equal(opened()[0], filePath);
+  } finally {
+    jj("restore", "b.txt");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("b.txt restored", () => !statusText().includes("b.txt"));
+  }
+});
+
 test("poll mode refreshes the change view", async () => {
   const workingCopy = jj("log", "--no-graph", "-r", "@", "-T", "change_id");
   const doc = await vscode.workspace.openTextDocument(

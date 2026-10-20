@@ -120,8 +120,28 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   const visit = async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
-    if (editor && view instanceof StatusView) {
-      const line = editor.selection.active.line;
+    if (!editor || !(view instanceof StatusView || view instanceof ChangeView)) {
+      return;
+    }
+    const line = editor.selection.active.line;
+    // A diff line opens its file at that line.
+    const location = view.locationAt(line);
+    if (location) {
+      const uri = vscode.Uri.file(path.join(view.root, location.path));
+      try {
+        await fs.stat(uri.fsPath);
+      } catch {
+        vscode.window.setStatusBarMessage(`${location.path} isn't in the working copy`, 4000);
+        return;
+      }
+      const position = new vscode.Position(location.line - 1, 0);
+      await vscode.window.showTextDocument(uri, {
+        viewColumn: otherColumn(),
+        selection: new vscode.Range(position, position),
+      });
+      return;
+    }
+    if (view instanceof StatusView) {
       const file = view.fileAt(line);
       const change = view.changeAt(line);
       if (file && !file.deleted) {
@@ -455,12 +475,13 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
       const previous = lastSelections.get(textEditor);
       lastSelections.set(textEditor, selections[0]);
       const [selection] = selections;
+      const view = viewFor(textEditor.document.uri);
       if (
         kind !== vscode.TextEditorSelectionChangeKind.Mouse ||
         selections.length !== 1 ||
         selection.isEmpty ||
         !previous?.isEmpty ||
-        !(viewFor(textEditor.document.uri) instanceof StatusView)
+        !(view instanceof StatusView || view instanceof ChangeView)
       ) {
         return;
       }

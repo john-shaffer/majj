@@ -62,11 +62,17 @@ const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
 
 const displayPath = (file: FileDiff) => (file.from ? `${file.from} -> ${file.path}` : file.path);
 
+/**
+ * Appends `jj show --git` output to `out`. Returns the fold spans, and fills
+ * in `diffLines` and `fileLines` with the diff line and file on each line.
+ */
 export function appendShow(
   out: StyledTextBuilder,
   ansi: string,
   collapsedFiles: ReadonlySet<string> = new Set(),
   collapsedChunks: ReadonlySet<string> = new Set(),
+  diffLines?: Map<number, DiffLine>,
+  fileLines?: Map<number, FileDiff>,
 ): Map<number, FoldSpan> {
   const foldSpans = new Map<number, FoldSpan>();
   const lines = ansi.split("\n");
@@ -114,8 +120,9 @@ export function appendShow(
     }
     out.newline();
     foldSpans.set(headerLine, { kind: "file", key: file.path, headerLine });
+    fileLines?.set(headerLine, file);
     if (!collapsedFiles.has(file.path)) {
-      appendFileDiff(out, file, headerLine, foldSpans, collapsedChunks);
+      appendFileDiff(out, file, headerLine, foldSpans, collapsedChunks, diffLines);
     }
   }
   return foldSpans;
@@ -220,6 +227,32 @@ export function appendFileDiff(
       foldSpans.set(l, { kind: "chunk", key, headerLine: chunkHeaderLine });
     }
   }
+}
+
+/**
+ * The 1-based line of the new file that line `lineIndex` of chunk
+ * `chunkIndex` in `file` shows, or for the chunk's `@@` header, its first
+ * line. A removed line maps to where it was removed from.
+ */
+export function newLineNumber(file: FileDiff, chunkIndex: number, lineIndex = 0): number {
+  const chunk = file.chunks[chunkIndex];
+  const match = chunk && HUNK_HEADER.exec(stripAnsi(chunk.header));
+  if (!match) {
+    return 1;
+  }
+  const start = Number(match[1]);
+  // A chunk that only removes lines starts at the line before the removal.
+  if (match[2] !== undefined && Number(match[2]) === 0) {
+    return Math.max(1, start);
+  }
+  let line = start;
+  for (let j = 0; j < lineIndex; j++) {
+    const plain = stripAnsi(chunk.lines[j]);
+    if (plain.startsWith(" ") || plain.startsWith("+")) {
+      line++;
+    }
+  }
+  return line;
 }
 
 /**
