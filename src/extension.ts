@@ -57,6 +57,9 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
 
   const viewFor = (uri: vscode.Uri) => views.get(uri.toString());
 
+  /** Each editor's last selection, to tell double-clicks from other mouse selections. */
+  const lastSelections = new WeakMap<vscode.TextEditor, vscode.Selection>();
+
   const activeView = () => {
     const uri = vscode.window.activeTextEditor?.document.uri;
     return uri && viewFor(uri);
@@ -445,6 +448,28 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.toggleSelect", toggleSelect),
     vscode.commands.registerCommand("majj.undo", runUndo),
     vscode.commands.registerCommand("majj.visit", visit),
+    // VS Code has no double-click event, but a double-click selects the word
+    // under the mouse, right after its first click put the cursor in that word.
+    // A drag or shift+click that covers a word doesn't start from a cursor in it.
+    vscode.window.onDidChangeTextEditorSelection(async ({ textEditor, selections, kind }) => {
+      const previous = lastSelections.get(textEditor);
+      lastSelections.set(textEditor, selections[0]);
+      const [selection] = selections;
+      if (
+        kind !== vscode.TextEditorSelectionChangeKind.Mouse ||
+        selections.length !== 1 ||
+        selection.isEmpty ||
+        !previous?.isEmpty ||
+        !(viewFor(textEditor.document.uri) instanceof StatusView)
+      ) {
+        return;
+      }
+      const word = textEditor.document.getWordRangeAtPosition(selection.start);
+      if (word?.isEqual(selection) && word.contains(previous.active)) {
+        textEditor.selection = new vscode.Selection(selection.start, selection.start);
+        await visit();
+      }
+    }),
     vscode.workspace.onDidChangeTextDocument((e) => {
       const view = viewFor(e.document.uri);
       if (view) {

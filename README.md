@@ -29,22 +29,23 @@ Changes:
 Press `g` in the view to refresh it, `?` to open `help.majj`, `q` to close a
 view, `ctrl+z` / `ctrl+y` to run `jj undo` / `jj redo`, `[` / `]` to run
 `jj prev` / `jj next` (in `change.majj`, to show the parent or child change when
-there's just one), `enter` on a change in the graph to open `change.majj` with
-its `jj show` output, `k` on a change or commit to run `jj abandon` on it, `a`
-to run `jj absorb` from it (or from the working copy elsewhere), `d` to edit its
-description (`jj describe`), `e` to run `jj edit` on it, `n` to start a new
-change on it (`jj new`), or `r` to run `jj rebase` on it. Like magit's revision
-buffer, `change.majj` and `help.majj` open as preview tabs, which the next one
-you open replaces. Press `enter` on a file under "Working copy changes" to open
-the file, `tab` on a file or diff chunk to show or hide it (also in
-`change.majj`) or on `(elided revisions)` in the graph to show those changes
-(and on one of them to hide them again), `space` on a file, chunk, or changed
-line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `c` to commit the selected
-changes, or the whole working copy if none are selected (`jj commit`), opening
-the description for editing if it has none, `s` to split the selected changes
-(`jj split`), `S` to squash changes into the change at point, or else `@-`
-(`jj squash`), `X` to restore changes (`jj restore`), or `k` to discard a file,
-chunk, or changed lines without asking (`ctrl+z` brings them back).
+there's just one), `enter` (or a double-click) on a change in the graph to open
+`change.majj` with its `jj show` output, `k` on a change or commit to run
+`jj abandon` on it, `a` to run `jj absorb` from it (or from the working copy
+elsewhere), `d` to edit its description (`jj describe`), `e` to run `jj edit` on
+it, `n` to start a new change on it (`jj new`), or `r` to run `jj rebase` on it.
+Like magit's revision buffer, `change.majj` and `help.majj` open as preview
+tabs, which the next one you open replaces. Press `enter` on a file under
+"Working copy changes" to open the file, `tab` on a file or diff chunk to show
+or hide it (also in `change.majj`) or on `(elided revisions)` in the graph to
+show those changes (and on one of them to hide them again), `space` on a file,
+chunk, or changed line to toggle its selection (`[ ]` / `[◐]` / `[●]`), `c` to
+commit the selected changes, or the whole working copy if none are selected
+(`jj commit`), opening the description for editing if it has none, `s` to split
+the selected changes (`jj split`), `S` to squash changes into the change at
+point, or else `@-` (`jj squash`), `X` to restore changes (`jj restore`), or `k`
+to discard a file, chunk, or changed lines without asking (`ctrl+z` brings them
+back).
 
 When jj needs a description, majj opens jj's draft in an editor tab, with the
 change's diff below a `JJ: ignore-rest` line, which jj ignores along with
