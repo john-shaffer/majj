@@ -29,6 +29,7 @@ const ESSENTIAL: HelpEntry[] = [
   { command: "majj.edit", description: "edit change at point" },
   { command: "majj.discard", description: "discard or abandon at point" },
   { command: "majj.new", description: "new change on change at point" },
+  { command: "majj.newMenu", description: "new change with arguments" },
   { command: "majj.rebase", description: "rebase change at point" },
   { command: "majj.split", description: "split selected changes" },
   { command: "majj.squash", description: "squash changes" },

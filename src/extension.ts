@@ -7,6 +7,7 @@ import { Decorator } from "./decorations";
 import { DescriptionEditor } from "./descriptionEditor";
 import { discardLines, FileDiff } from "./diff";
 import { HelpView } from "./helpView";
+import { JjHelpView } from "./jjHelpView";
 import {
   abandon,
   absorb,
@@ -24,6 +25,7 @@ import {
   restore,
   restoreChanges,
   restoreRevision,
+  runJj,
   SelectedChanges,
   snapshot,
   split,
@@ -31,6 +33,7 @@ import {
   undo,
   withSelection,
 } from "./jj";
+import { newMenu } from "./newMenu";
 import { activePrompt, promptInput } from "./prompt";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
@@ -73,6 +76,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
         view = new ChangeView(uri, notify);
       } else if (uri.path === HelpView.path) {
         view = new HelpView(uri, notify, context);
+      } else if (uri.path === JjHelpView.path) {
+        view = new JjHelpView(uri, notify);
       } else {
         view = new StatusView(uri, notify);
       }
@@ -93,12 +98,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     },
   };
 
-  const showView = async (uri: vscode.Uri, preview: boolean, viewColumn = otherColumn()) => {
+  const showView = async (uri: vscode.Uri, preview: boolean, viewColumn = otherColumn(), preserveFocus = false) => {
     let doc = await vscode.workspace.openTextDocument(uri);
     if (doc.languageId !== "majj") {
       doc = await vscode.languages.setTextDocumentLanguage(doc, "majj");
     }
-    await vscode.window.showTextDocument(doc, { preview, viewColumn });
+    await vscode.window.showTextDocument(doc, { preview, viewColumn, preserveFocus });
   };
 
   const showStatus = async () => {
@@ -309,6 +314,18 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
 
   const newOnChange = statusCommand((view, editor) => newChange(view.root, changeAtPoint(view, editor) ?? "@"));
 
+  const newWithArguments = statusCommand(async (view, editor) => {
+    const change = changeAtPoint(view, editor);
+    const parent = change ? { revset: change, label: change.slice(0, 8) } : { revset: "@", label: "@" };
+    const args = await newMenu(view.root, parent, () =>
+      showView(JjHelpView.uriFor(view.root, "new"), true, otherColumn(), true),
+    );
+    if (!args) {
+      return false;
+    }
+    await runJj(view.root, args);
+  });
+
   /**
    * Shows the parent or child of the change in the active change view, if it
    * has just one (other than the root), replacing the view's preview tab.
@@ -465,6 +482,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.finishEditing", () => descriptionEditor.finish()),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.new", newOnChange),
+    vscode.commands.registerCommand("majj.newMenu", newWithArguments),
     vscode.commands.registerCommand("majj.next", moveToNext),
     vscode.commands.registerCommand("majj.prev", moveToPrev),
     vscode.commands.registerCommand("majj.rebase", rebaseChange),

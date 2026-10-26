@@ -243,7 +243,7 @@ async function withElisions(
  * ancestors. Like magit's recent commits, they give the graph some context
  * when everything is pushed and the default revset shows little else.
  */
-async function graphRevset(root: string, recentChanges: number): Promise<string | undefined> {
+export async function graphRevset(root: string, recentChanges: number): Promise<string | undefined> {
   if (recentChanges <= 0) {
     return undefined;
   }

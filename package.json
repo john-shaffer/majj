@@ -76,6 +76,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.newMenu",
+        "title": "New Change with Arguments",
+        "category": "Majj"
+      },
+      {
         "command": "majj.next",
         "title": "Move Working Copy to Next Change",
         "category": "Majj"
@@ -270,6 +275,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.newMenu",
+        "key": "- n",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.next",
         "key": "]",
         "when": "editorTextFocus && editorLangId == majj"
@@ -404,6 +414,10 @@
         },
         {
           "command": "majj.new",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.newMenu",
           "when": "editorLangId == majj"
         },
         {

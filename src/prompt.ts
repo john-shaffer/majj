@@ -23,11 +23,13 @@ export function openPrompt(prompt: Prompt): () => void {
   };
 }
 
-export function promptInput(prompt: string): Promise<string | undefined> {
+/** Asks for a line of text, resolving with it trimmed, or undefined if canceled. */
+export function promptInput(prompt: string, { value = "" }: { value?: string } = {}): Promise<string | undefined> {
   return new Promise((resolve) => {
     let settled = false;
     const inputBox = vscode.window.createInputBox();
     inputBox.prompt = prompt;
+    inputBox.value = value;
 
     const finish = (value: string | undefined) => {
       if (settled) {
@@ -36,7 +38,7 @@ export function promptInput(prompt: string): Promise<string | undefined> {
       settled = true;
       close();
       inputBox.hide();
-      resolve(value?.trim() || undefined);
+      resolve(value?.trim());
     };
 
     const close = openPrompt({ title: prompt, answer: finish });

@@ -725,6 +725,61 @@ test("setting a bookmark on a change in status.majj prompts for its name and run
   }
 });
 
+test("- n opens a menu that builds the arguments for jj new", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
+  const answer = async (title: string, input: string) => {
+    await waitFor(`the ${title} prompt`, () => api.confirmPrompt() === title);
+    api.answerConfirmation(input);
+  };
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const workingCopy = jj("log", "--no-graph", "-r", "@", "-T", "change_id").trim();
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("Sibling change in graph", () => statusText().includes("Sibling change"));
+    const siblingId = jj(
+      "log",
+      "--no-graph",
+      "-r",
+      'description(substring:"Sibling change")',
+      "-T",
+      "change_id",
+    ).trim();
+    const editor = vscode.window.activeTextEditor!;
+    const lines = editor.document.getText().split("\n");
+    const siblingLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Sibling change"));
+    editor.selection = new vscode.Selection(siblingLine, 0, siblingLine, 0);
+
+    const menu = vscode.commands.executeCommand("majj.newMenu");
+    await answer("jj new", "h");
+    await waitFor("jj new help", () =>
+      vscode.window.visibleTextEditors.some(
+        (e) => e.document.uri.path === "jj-help.majj" && e.document.getText().includes("Create a new, empty change"),
+      ),
+    );
+    await answer("jj new", "m");
+    await answer("Message", "Merged");
+    // The first parent picked replaces the change at point, and the next one adds to it.
+    await answer("jj new", "o");
+    await answer("Parents", "feature");
+    await answer("jj new", "r");
+    await answer("Parents", siblingId);
+    await answer("jj new", "e");
+    await answer("jj new", "n");
+    await menu;
+
+    const merged = 'description(substring:"Merged")';
+    assert.deepEqual(
+      jj("log", "--no-graph", "-r", `${merged}-`, "-T", 'description.first_line() ++ "\\n"').trim().split("\n").sort(),
+      ["First change", "Sibling change"],
+    );
+    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "change_id").trim(), workingCopy, "--no-edit moved @");
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.refresh");
+  }
+});
+
 test("restoring selected working copy changes or a change at point with X runs jj restore", async () => {
   await setConfig("autoRefresh.mode", "off");
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
@@ -1064,6 +1119,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  e        edit change at point",
       "  k        discard or abandon at point",
       "  n        new change on change at point",
+      "  - n      new change with arguments",
       "  r        rebase change at point",
       "  s        split selected changes",
       "  S        squash changes",
