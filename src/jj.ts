@@ -74,6 +74,11 @@ export async function abandon(cwd: string, revision: string): Promise<void> {
   await runJj(cwd, ["abandon", revision]);
 }
 
+/** Points bookmark `name` at `revision`, creating or moving it (`jj bookmark set`). */
+export async function bookmarkSet(cwd: string, name: string, revision: string): Promise<void> {
+  await runJj(cwd, ["bookmark", "set", "--allow-backwards", "-r", revision, "--", name]);
+}
+
 /**
  * Commits the selected working copy changes (or all working copy changes if
  * none are selected) with the working copy's existing description (`jj commit`).

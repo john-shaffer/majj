@@ -31,6 +31,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.bookmark",
+        "title": "Set Bookmark on Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.cancelEditing",
         "title": "Cancel Editing Description",
         "category": "Majj"
@@ -68,6 +73,11 @@
       {
         "command": "majj.new",
         "title": "New Change on Change at Point",
+        "category": "Majj"
+      },
+      {
+        "command": "majj.newMenu",
+        "title": "New Change with Arguments",
         "category": "Majj"
       },
       {
@@ -215,6 +225,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.bookmark",
+        "key": "b",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.cancelEditing",
         "key": "ctrl+c ctrl+k",
         "when": "editorTextFocus && editorLangId == jjdescription"
@@ -257,6 +272,11 @@
       {
         "command": "majj.new",
         "key": "n",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
+        "command": "majj.newMenu",
+        "key": "- n",
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
@@ -361,6 +381,10 @@
           "when": "editorLangId == majj"
         },
         {
+          "command": "majj.bookmark",
+          "when": "editorLangId == majj"
+        },
+        {
           "command": "majj.cancelEditing",
           "when": "editorLangId == jjdescription"
         },
@@ -390,6 +414,10 @@
         },
         {
           "command": "majj.new",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.newMenu",
           "when": "editorLangId == majj"
         },
         {

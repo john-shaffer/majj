@@ -7,9 +7,11 @@ import { Decorator } from "./decorations";
 import { DescriptionEditor } from "./descriptionEditor";
 import { discardLines, FileDiff } from "./diff";
 import { HelpView } from "./helpView";
+import { JjHelpView } from "./jjHelpView";
 import {
   abandon,
   absorb,
+  bookmarkSet,
   commit,
   description,
   edit,
@@ -23,6 +25,7 @@ import {
   restore,
   restoreChanges,
   restoreRevision,
+  runJj,
   SelectedChanges,
   snapshot,
   split,
@@ -30,13 +33,13 @@ import {
   undo,
   withSelection,
 } from "./jj";
+import { newMenu } from "./newMenu";
+import { activePrompt, promptInput } from "./prompt";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
 /** Open views by URI. */
 const views = new Map<string, View>();
-
-let activeConfirmation: { prompt: string; answer: (input: string) => void } | undefined;
 
 export interface MajjApi {
   /** Sends keyboard input to the open input prompt. Used by tests. */
@@ -73,6 +76,8 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
         view = new ChangeView(uri, notify);
       } else if (uri.path === HelpView.path) {
         view = new HelpView(uri, notify, context);
+      } else if (uri.path === JjHelpView.path) {
+        view = new JjHelpView(uri, notify);
       } else {
         view = new StatusView(uri, notify);
       }
@@ -93,12 +98,12 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     },
   };
 
-  const showView = async (uri: vscode.Uri, preview: boolean, viewColumn = otherColumn()) => {
+  const showView = async (uri: vscode.Uri, preview: boolean, viewColumn = otherColumn(), preserveFocus = false) => {
     let doc = await vscode.workspace.openTextDocument(uri);
     if (doc.languageId !== "majj") {
       doc = await vscode.languages.setTextDocumentLanguage(doc, "majj");
     }
-    await vscode.window.showTextDocument(doc, { preview, viewColumn });
+    await vscode.window.showTextDocument(doc, { preview, viewColumn, preserveFocus });
   };
 
   const showStatus = async () => {
@@ -196,6 +201,15 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   });
 
   const absorbAtPoint = statusCommand((view, editor) => absorb(view.root, changeAtPoint(view, editor) ?? "@"));
+
+  const bookmarkAtPoint = statusCommand(async (view, editor) => {
+    const revision = changeAtPoint(view, editor) ?? "@";
+    const name = await promptInput(`Set bookmark on ${revision}`);
+    if (!name) {
+      return false;
+    }
+    await bookmarkSet(view.root, name, revision);
+  });
 
   const commitWorkingCopy = statusCommand(async (view) => {
     const selection = await buildSelectedChanges(view);
@@ -299,6 +313,18 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   });
 
   const newOnChange = statusCommand((view, editor) => newChange(view.root, changeAtPoint(view, editor) ?? "@"));
+
+  const newWithArguments = statusCommand(async (view, editor) => {
+    const change = changeAtPoint(view, editor);
+    const parent = change ? { revset: change, label: change.slice(0, 8) } : { revset: "@", label: "@" };
+    const args = await newMenu(view.root, parent, () =>
+      showView(JjHelpView.uriFor(view.root, "new"), true, otherColumn(), true),
+    );
+    if (!args) {
+      return false;
+    }
+    await runJj(view.root, args);
+  });
 
   /**
    * Shows the parent or child of the change in the active change view, if it
@@ -447,6 +473,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.abandon", abandonChange),
     vscode.commands.registerCommand("majj.absorb", absorbAtPoint),
+    vscode.commands.registerCommand("majj.bookmark", bookmarkAtPoint),
     vscode.commands.registerCommand("majj.cancelEditing", () => descriptionEditor.cancel()),
     vscode.commands.registerCommand("majj.commit", commitWorkingCopy),
     vscode.commands.registerCommand("majj.describe", describeAtPoint),
@@ -455,6 +482,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.finishEditing", () => descriptionEditor.finish()),
     vscode.commands.registerCommand("majj.help", showHelp),
     vscode.commands.registerCommand("majj.new", newOnChange),
+    vscode.commands.registerCommand("majj.newMenu", newWithArguments),
     vscode.commands.registerCommand("majj.next", moveToNext),
     vscode.commands.registerCommand("majj.prev", moveToPrev),
     vscode.commands.registerCommand("majj.rebase", rebaseChange),
@@ -524,39 +552,10 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   );
 
   return {
-    answerConfirmation: (input) => activeConfirmation?.answer(input),
-    confirmPrompt: () => activeConfirmation?.prompt,
+    answerConfirmation: (input) => activePrompt()?.answer(input),
+    confirmPrompt: () => activePrompt()?.title,
     getStatus: (root) => viewFor(StatusView.uriFor(root))?.content,
   };
-}
-
-function promptInput(prompt: string): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const inputBox = vscode.window.createInputBox();
-    inputBox.prompt = prompt;
-
-    const finish = (value: string | undefined) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      activeConfirmation = undefined;
-      inputBox.hide();
-      resolve(value?.trim() || undefined);
-    };
-
-    activeConfirmation = { prompt, answer: finish };
-    const acceptSub = inputBox.onDidAccept(() => finish(inputBox.value));
-    const hideSub = inputBox.onDidHide(() => {
-      acceptSub.dispose();
-      hideSub.dispose();
-      inputBox.dispose();
-      finish(undefined);
-    });
-
-    inputBox.show();
-  });
 }
 
 /** Both paths of a renamed or copied file, or else its one path. */

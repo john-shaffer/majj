@@ -32,10 +32,11 @@ view, `ctrl+z` / `ctrl+y` to run `jj undo` / `jj redo`, `[` / `]` to run
 there's just one), `enter` (or a double-click) on a change in the graph to open
 `change.majj` with its `jj show` output, `k` on a change or commit to run
 `jj abandon` on it, `a` to run `jj absorb` from it (or from the working copy
-elsewhere), `d` to edit its description (`jj describe`), `e` to run `jj edit` on
-it, `n` to start a new change on it (`jj new`), or `r` to run `jj rebase` on it.
-Like magit's revision buffer, `change.majj` and `help.majj` open as preview
-tabs, which the next one you open replaces. Press `enter` (or double-click) on a
+elsewhere), `b` to set a bookmark on it (`jj bookmark set`), `d` to edit its
+description (`jj describe`), `e` to run `jj edit` on it, `n` to start a new
+change on it (`jj new`), or `r` to run `jj rebase` on it. Like magit's revision
+buffer, `change.majj` and `help.majj` open as preview tabs, which the next one
+you open replaces. Press `enter` (or double-click) on a
 file under "Working copy changes" to open the file, or on a diff line (also in
 `change.majj`) to open its file at that line, `tab` on a file or diff chunk to
 show or hide it (also in `change.majj`) or on `(elided revisions)` in the graph
@@ -47,6 +48,16 @@ to split the selected changes (`jj split`), `S` to squash changes into the
 change at point, or else `@-` (`jj squash`), `X` to restore changes
 (`jj restore`), or `k` to discard a file, chunk, or changed lines without asking
 (`ctrl+z` brings them back).
+
+Press `-` and then a command's key to set its arguments in a menu before
+running it. For now that's `- n` for `jj new`, which starts with the change at
+point as the parent. In the menu, press `o` or `r` to pick parents, `m` to set
+the message, `e` to toggle editing the new change (`--no-edit`), `A` or `B` to
+pick changes to insert it after or before, `h` or `?` for `jj help new`, and `n`
+to run it. Escape or `q` closes the menu. When picking changes, type to match
+the changes in the graph by ID, bookmark, description, or author, or type a
+revset to see the changes in it. Picking a change that's already picked (marked
+with a check) removes it, and the first parent picked replaces the starting one.
 
 When jj needs a description, majj opens jj's draft in an editor tab, with the
 change's diff below a `JJ: ignore-rest` line, which jj ignores along with
@@ -64,6 +75,7 @@ or the second if the first is active, splitting the editor if there's only one. 
 | ------------------------------------ | --------------- | -------------------------- |
 | `majj.abandon`                       |                 | in the status view         |
 | `majj.absorb`                        | `a`             | in the status view         |
+| `majj.bookmark`                      | `b`             | in the status view         |
 | `majj.cancelEditing`                 | `ctrl+c ctrl+k` | in a description editor    |
 | `majj.commit`                        | `c`             | in the status view         |
 | `majj.describe`                      | `d`             | in the status view         |
@@ -72,6 +84,7 @@ or the second if the first is active, splitting the editor if there's only one. 
 | `majj.finishEditing`                 | `ctrl+c ctrl+c` | in a description editor    |
 | `majj.help`                          | `?`             | in majj views              |
 | `majj.new`                           | `n`             | in the status view         |
+| `majj.newMenu`                       | `- n`           | in the status view         |
 | `majj.next`                          | `]`             | in status and change views |
 | `majj.prev`                          | `[`             | in status and change views |
 | `majj.rebase`                        | `r`             | in the status view         |
