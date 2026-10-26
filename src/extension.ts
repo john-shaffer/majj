@@ -31,13 +31,12 @@ import {
   undo,
   withSelection,
 } from "./jj";
+import { activePrompt, promptInput } from "./prompt";
 import { StatusView } from "./statusView";
 import { SCHEME, View } from "./view";
 
 /** Open views by URI. */
 const views = new Map<string, View>();
-
-let activeConfirmation: { prompt: string; answer: (input: string) => void } | undefined;
 
 export interface MajjApi {
   /** Sends keyboard input to the open input prompt. Used by tests. */
@@ -535,39 +534,10 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   );
 
   return {
-    answerConfirmation: (input) => activeConfirmation?.answer(input),
-    confirmPrompt: () => activeConfirmation?.prompt,
+    answerConfirmation: (input) => activePrompt()?.answer(input),
+    confirmPrompt: () => activePrompt()?.title,
     getStatus: (root) => viewFor(StatusView.uriFor(root))?.content,
   };
-}
-
-function promptInput(prompt: string): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const inputBox = vscode.window.createInputBox();
-    inputBox.prompt = prompt;
-
-    const finish = (value: string | undefined) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      activeConfirmation = undefined;
-      inputBox.hide();
-      resolve(value?.trim() || undefined);
-    };
-
-    activeConfirmation = { prompt, answer: finish };
-    const acceptSub = inputBox.onDidAccept(() => finish(inputBox.value));
-    const hideSub = inputBox.onDidHide(() => {
-      acceptSub.dispose();
-      hideSub.dispose();
-      inputBox.dispose();
-      finish(undefined);
-    });
-
-    inputBox.show();
-  });
 }
 
 /** Both paths of a renamed or copied file, or else its one path. */
