@@ -202,6 +202,40 @@ test("visiting a change in the graph shows it", async () => {
   assert.ok(!doc.getText().includes("\x1b"), "escape codes leaked");
 });
 
+test("[ and ] in change.majj show the previous and next change in a linear chain", async () => {
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const idOf = (rev: string) => jj("log", "--no-graph", "-r", rev, "-T", "change_id").trim();
+  const second = idOf('description(exact:"Second change\n")');
+  const first = idOf('description(exact:"First change\n")');
+  const shown = () => vscode.window.activeTextEditor?.document.uri;
+  const press = async (command: string, expected: string, what: string) => {
+    await vscode.commands.executeCommand(command);
+    await waitFor(what, () => shown()?.path === "change.majj" && shown()?.fragment === expected);
+  };
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("the graph", () => statusText().includes("Second change"));
+    const lines = statusText().split("\n");
+    const line = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(line, 0, line, 0);
+    await vscode.commands.executeCommand("majj.visit");
+    await waitFor("Second change", () => shown()?.fragment === second);
+
+    await press("majj.next", idOf("@"), "the working copy, Second change's only child");
+    await press("majj.prev", second, "Second change again");
+    await press("majj.prev", first, "First change");
+    // The root doesn't count as a previous change.
+    await press("majj.prev", first, "First change to stay");
+
+    // With a second child, First change isn't a chain going forward.
+    jj("new", "--no-edit", first, "-m", "Another child");
+    await press("majj.next", first, "First change to stay");
+    assert.equal(vscode.window.tabGroups.all.flatMap((g) => g.tabs).filter((t) => t.label === "change.majj").length, 1);
+  } finally {
+    jj("op", "restore", savedOp);
+  }
+});
+
 test("visiting a working copy change opens the file", async () => {
   await vscode.commands.executeCommand("majj.status");
   await waitFor("the working copy changes", () => statusText().includes("A c.txt"));
@@ -211,6 +245,56 @@ test("visiting a working copy change opens the file", async () => {
   await vscode.commands.executeCommand("majj.visit");
 
   assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, path.join(repo, "c.txt"));
+});
+
+test("visiting a diff line opens its file at that line", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const filePath = path.join(repo, "b.txt");
+  fs.writeFileSync(filePath, "b1\nb2\nb3\n");
+  const visitAt = async (line: number) => {
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(line, 0, line, 0);
+    await vscode.commands.executeCommand("majj.visit");
+  };
+  const opened = () => {
+    const editor = vscode.window.activeTextEditor!;
+    return [editor.document.uri.fsPath, editor.selection.active.line];
+  };
+  try {
+    // A working copy diff line in the status view.
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("M b.txt", () => statusText().includes("[ ] M b.txt"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(
+      statusText().split("\n").indexOf("[ ] M b.txt"),
+      0,
+      statusText().split("\n").indexOf("[ ] M b.txt"),
+      0,
+    );
+    await vscode.commands.executeCommand("majj.toggleFold");
+    await waitFor("b.txt's diff", () => statusText().includes("[ ] +b2"));
+    await visitAt(statusText().split("\n").indexOf("[ ] +b2"));
+    assert.deepEqual(opened(), [filePath, 1]);
+
+    // A diff line and a file line in change.majj.
+    await vscode.commands.executeCommand("majj.status");
+    const lines = statusText().split("\n");
+    await visitAt(lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Second change")));
+    const change = vscode.window.activeTextEditor!.document;
+    await waitFor("the change", () => change.getText().includes("+b"));
+    await visitAt(change.getText().split("\n").indexOf("+b"));
+    assert.deepEqual(opened(), [filePath, 0]);
+    await vscode.window.showTextDocument(change);
+    await visitAt(
+      change
+        .getText()
+        .split("\n")
+        .findIndex((l) => l.startsWith("new file   b.txt")),
+    );
+    assert.equal(opened()[0], filePath);
+  } finally {
+    jj("restore", "b.txt");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("b.txt restored", () => !statusText().includes("b.txt"));
+  }
 });
 
 test("poll mode refreshes the change view", async () => {
@@ -524,6 +608,31 @@ test("selecting working copy changes with space then splitting with s and squash
     jj("op", "restore", savedOp);
     await vscode.commands.executeCommand("majj.refresh");
     await waitFor("repo restored", () => !statusText().includes("b.txt") && statusText().includes("[ ] A c.txt"));
+  }
+});
+
+test("S on a change squashes the working copy's changes into it", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  const first = 'description(exact:"First change\n")';
+  fs.writeFileSync(path.join(repo, "into-first.txt"), "x\n");
+  try {
+    // Without a description of its own, @ leaves First change's alone.
+    jj("describe", "-m", "");
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("A into-first.txt", () => statusText().includes("A into-first.txt"));
+    const lines = statusText().split("\n");
+    const line = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("First change"));
+    vscode.window.activeTextEditor!.selection = new vscode.Selection(line, 0, line, 0);
+    await vscode.commands.executeCommand("majj.squash");
+    assert.equal(jj("file", "show", "-r", first, "into-first.txt"), "x\n");
+    assert.equal(jj("log", "--no-graph", "-r", "@", "-T", "empty").trim(), "true");
+    assert.equal(jj("log", "--no-graph", "-r", first, "-T", "description").trim(), "First change");
+  } finally {
+    jj("op", "restore", savedOp);
+    fs.rmSync(path.join(repo, "into-first.txt"), { force: true });
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("repo restored", () => !statusText().includes("into-first.txt"));
   }
 });
 

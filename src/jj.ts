@@ -34,6 +34,26 @@ export async function configGet(cwd: string, name: string): Promise<string> {
   return (await runJj(cwd, ["config", "get", name])).trim();
 }
 
+/**
+ * A template for the ID majj uses for a commit: its change ID, or for a
+ * divergent change, which that ID doesn't identify, its commit ID.
+ */
+export const ENTRY_ID = "stringify(if(divergent, commit_id, change_id))";
+
+/** The IDs (see `ENTRY_ID`) of the commits in `revset`. */
+export async function entryIds(cwd: string, revset: string): Promise<string[]> {
+  const out = await runJj(cwd, [
+    "log",
+    "--no-graph",
+    "--ignore-working-copy",
+    "-r",
+    revset,
+    "-T",
+    `${ENTRY_ID} ++ "\\n"`,
+  ]);
+  return out.split("\n").filter((id) => id);
+}
+
 /** The root of the jj workspace containing `dir`. */
 export async function findRoot(dir: string): Promise<string> {
   return (await runJj(dir, ["root"])).trim();
@@ -213,9 +233,13 @@ export async function split(cwd: string, selection: SelectedChanges): Promise<vo
   await runWithSelection(cwd, ["split", "-m", ""], selection);
 }
 
-/** Squashes the selected working copy changes (or all working copy changes if none are selected) into `@-` (`jj squash`). */
-export async function squash(cwd: string, selection?: SelectedChanges): Promise<void> {
-  await runWithSelection(cwd, ["squash", "--config", 'ui.editor="true"'], selection);
+/**
+ * Squashes the selected working copy changes (or all working copy changes if
+ * none are selected) into `into`, or else `@-` (`jj squash`).
+ */
+export async function squash(cwd: string, selection?: SelectedChanges, into?: string): Promise<void> {
+  const args = ["squash", "--config", 'ui.editor="true"', ...(into ? ["--into", into] : [])];
+  await runWithSelection(cwd, args, selection);
 }
 
 /** Undoes the last operation (`jj undo`). */

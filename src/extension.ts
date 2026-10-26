@@ -13,6 +13,7 @@ import {
   commit,
   description,
   edit,
+  entryIds,
   findRoot,
   newChange,
   next,
@@ -55,6 +56,14 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.window.visibleTextEditors.filter((e) => e.document.uri.toString() === view.uri.toString());
 
   const viewFor = (uri: vscode.Uri) => views.get(uri.toString());
+
+  /** Each editor's last selection, to tell double-clicks from other mouse selections. */
+  const lastSelections = new WeakMap<vscode.TextEditor, vscode.Selection>();
+
+  const activeView = () => {
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    return uri && viewFor(uri);
+  };
 
   const getView = (uri: vscode.Uri) => {
     let view = viewFor(uri);
@@ -111,8 +120,28 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   const visit = async () => {
     const editor = vscode.window.activeTextEditor;
     const view = editor && viewFor(editor.document.uri);
-    if (editor && view instanceof StatusView) {
-      const line = editor.selection.active.line;
+    if (!editor || !(view instanceof StatusView || view instanceof ChangeView)) {
+      return;
+    }
+    const line = editor.selection.active.line;
+    // A diff line opens its file at that line.
+    const location = view.locationAt(line);
+    if (location) {
+      const uri = vscode.Uri.file(path.join(view.root, location.path));
+      try {
+        await fs.stat(uri.fsPath);
+      } catch {
+        vscode.window.setStatusBarMessage(`${location.path} isn't in the working copy`, 4000);
+        return;
+      }
+      const position = new vscode.Position(location.line - 1, 0);
+      await vscode.window.showTextDocument(uri, {
+        viewColumn: otherColumn(),
+        selection: new vscode.Range(position, position),
+      });
+      return;
+    }
+    if (view instanceof StatusView) {
       const file = view.fileAt(line);
       const change = view.changeAt(line);
       if (file && !file.deleted) {
@@ -261,16 +290,50 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     view.clearSelection();
   });
 
-  const squashSelected = statusCommand(async (view) => {
-    await squash(view.root, await buildSelectedChanges(view));
+  const squashSelected = statusCommand(async (view, editor) => {
+    // Into the change at point, unless that's the working copy itself.
+    const change = changeAtPoint(view, editor);
+    const [workingCopy] = change ? await entryIds(view.root, "@") : [];
+    await squash(view.root, await buildSelectedChanges(view), change === workingCopy ? undefined : change);
     view.clearSelection();
   });
 
   const newOnChange = statusCommand((view, editor) => newChange(view.root, changeAtPoint(view, editor) ?? "@"));
 
-  const moveToNext = statusCommand((view) => next(view.root));
+  /**
+   * Shows the parent or child of the change in the active change view, if it
+   * has just one (other than the root), replacing the view's preview tab.
+   */
+  const showNeighbor = async (view: ChangeView, direction: "parent" | "child") => {
+    const change = view.uri.fragment;
+    try {
+      const revset = direction === "parent" ? `${change}- ~ root()` : `${change}+`;
+      const [neighbor, ...others] = await entryIds(view.root, revset);
+      if (!neighbor || others.length > 0) {
+        const count = others.length + (neighbor ? 1 : 0);
+        vscode.window.setStatusBarMessage(
+          `${change.slice(0, 8)} has ${count} ${direction === "parent" ? "parents" : "children"}`,
+          4000,
+        );
+        return;
+      }
+      await showView(ChangeView.uriFor(view.root, neighbor), true, columnOf(view.uri));
+    } catch (e) {
+      void vscode.window.showErrorMessage(`majj: ${e instanceof Error ? e.message : e}`);
+    }
+  };
 
-  const moveToPrev = statusCommand((view) => prev(view.root));
+  /** In a change view, shows the next change; elsewhere, moves the working copy to it (`jj next`). */
+  const moveToNext = async () => {
+    const view = activeView();
+    await (view instanceof ChangeView ? showNeighbor(view, "child") : statusCommand((v) => next(v.root))());
+  };
+
+  /** In a change view, shows the previous change; elsewhere, moves the working copy to it (`jj prev`). */
+  const moveToPrev = async () => {
+    const view = activeView();
+    await (view instanceof ChangeView ? showNeighbor(view, "parent") : statusCommand((v) => prev(v.root))());
+  };
 
   const rebaseChange = statusCommand(async (view, editor) => {
     const source = changeAtPoint(view, editor) ?? "@";
@@ -405,6 +468,29 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.commands.registerCommand("majj.toggleSelect", toggleSelect),
     vscode.commands.registerCommand("majj.undo", runUndo),
     vscode.commands.registerCommand("majj.visit", visit),
+    // VS Code has no double-click event, but a double-click selects the word
+    // under the mouse, right after its first click put the cursor in that word.
+    // A drag or shift+click that covers a word doesn't start from a cursor in it.
+    vscode.window.onDidChangeTextEditorSelection(async ({ textEditor, selections, kind }) => {
+      const previous = lastSelections.get(textEditor);
+      lastSelections.set(textEditor, selections[0]);
+      const [selection] = selections;
+      const view = viewFor(textEditor.document.uri);
+      if (
+        kind !== vscode.TextEditorSelectionChangeKind.Mouse ||
+        selections.length !== 1 ||
+        selection.isEmpty ||
+        !previous?.isEmpty ||
+        !(view instanceof StatusView || view instanceof ChangeView)
+      ) {
+        return;
+      }
+      const word = textEditor.document.getWordRangeAtPosition(selection.start);
+      if (word?.isEqual(selection) && word.contains(previous.active)) {
+        textEditor.selection = new vscode.Selection(selection.start, selection.start);
+        await visit();
+      }
+    }),
     vscode.workspace.onDidChangeTextDocument((e) => {
       const view = viewFor(e.document.uri);
       if (view) {

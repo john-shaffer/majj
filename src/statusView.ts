@@ -8,10 +8,11 @@ import {
   FileDiff,
   fileSelectionState,
   FoldSpan,
+  newLineNumber,
   parseFiles,
   selectionPrefix,
 } from "./diff";
-import { configGet, JjError, runJj } from "./jj";
+import { configGet, ENTRY_ID, entryIds, JjError, runJj } from "./jj";
 import { appendError, SCHEME, View } from "./view";
 import { WorkingCopyFile, workingCopyFiles } from "./workingCopy";
 
@@ -22,7 +23,6 @@ const NO_REPO = /There is no jj repo in/;
 // lines can be mapped to changes whatever the user's log template looks like.
 // A divergent change ID is ambiguous, so those entries use their commit ID.
 const MARK = /\x1e([^\x1f]*)\x1f/;
-const ENTRY_ID = "stringify(if(divergent, commit_id, change_id))";
 const markedTemplate = (template: string) => `"\\x1e" ++ ${ENTRY_ID} ++ "\\x1f" ++ (${template})`;
 // jj's line for an edge through changes the revset leaves out, under the node it comes from.
 const ELIDED = /^[^~]*~\s+\(elided revisions\)\s*$/;
@@ -230,11 +230,8 @@ async function withElisions(
   const elided = (c: string) => `((${base} & ::present(${c}))::present(${c}))`;
   await Promise.all(
     [...expanded].map(async (c) => {
-      const args = ["log", "--no-graph", "--ignore-working-copy", "-r", `${elided(c)} ~ ${base}`];
-      for (const id of (await runJj(root, [...args, "-T", `${ENTRY_ID} ++ "\\n"`])).split("\n")) {
-        if (id) {
-          revealedBy.set(id, c);
-        }
+      for (const id of await entryIds(root, `${elided(c)} ~ ${base}`)) {
+        revealedBy.set(id, c);
       }
     }),
   );
@@ -283,6 +280,17 @@ export class StatusView extends View {
   /** The ID of the change shown on a line of the change graph. */
   changeAt(line: number): string | undefined {
     return this.changes.get(line);
+  }
+
+  /** The working copy file, relative to the root, and 1-based line of it that a diff line shows. */
+  locationAt(line: number): { path: string; line: number } | undefined {
+    const diffLine = this.diffLines.get(line);
+    return (
+      diffLine && {
+        path: diffLine.file.path,
+        line: newLineNumber(diffLine.file, diffLine.chunkIndex, diffLine.lineIndex),
+      }
+    );
   }
 
   /** The working copy file shown on a line, relative to the root. */
