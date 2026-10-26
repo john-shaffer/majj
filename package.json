@@ -31,6 +31,11 @@
         "category": "Majj"
       },
       {
+        "command": "majj.bookmark",
+        "title": "Set Bookmark on Change at Point",
+        "category": "Majj"
+      },
+      {
         "command": "majj.cancelEditing",
         "title": "Cancel Editing Description",
         "category": "Majj"
@@ -215,6 +220,11 @@
         "when": "editorTextFocus && editorLangId == majj"
       },
       {
+        "command": "majj.bookmark",
+        "key": "b",
+        "when": "editorTextFocus && editorLangId == majj"
+      },
+      {
         "command": "majj.cancelEditing",
         "key": "ctrl+c ctrl+k",
         "when": "editorTextFocus && editorLangId == jjdescription"
@@ -358,6 +368,10 @@
         },
         {
           "command": "majj.absorb",
+          "when": "editorLangId == majj"
+        },
+        {
+          "command": "majj.bookmark",
           "when": "editorLangId == majj"
         },
         {

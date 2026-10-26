@@ -10,6 +10,7 @@ import { HelpView } from "./helpView";
 import {
   abandon,
   absorb,
+  bookmarkSet,
   commit,
   description,
   edit,
@@ -196,6 +197,15 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
   });
 
   const absorbAtPoint = statusCommand((view, editor) => absorb(view.root, changeAtPoint(view, editor) ?? "@"));
+
+  const bookmarkAtPoint = statusCommand(async (view, editor) => {
+    const revision = changeAtPoint(view, editor) ?? "@";
+    const name = await promptInput(`Set bookmark on ${revision}`);
+    if (!name) {
+      return false;
+    }
+    await bookmarkSet(view.root, name, revision);
+  });
 
   const commitWorkingCopy = statusCommand(async (view) => {
     const selection = await buildSelectedChanges(view);
@@ -447,6 +457,7 @@ export function activate(context: vscode.ExtensionContext): MajjApi {
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
     vscode.commands.registerCommand("majj.abandon", abandonChange),
     vscode.commands.registerCommand("majj.absorb", absorbAtPoint),
+    vscode.commands.registerCommand("majj.bookmark", bookmarkAtPoint),
     vscode.commands.registerCommand("majj.cancelEditing", () => descriptionEditor.cancel()),
     vscode.commands.registerCommand("majj.commit", commitWorkingCopy),
     vscode.commands.registerCommand("majj.describe", describeAtPoint),

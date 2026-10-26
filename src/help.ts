@@ -23,6 +23,7 @@ const ESSENTIAL: HelpEntry[] = [
   { command: "majj.toggleSelect", description: "toggle selection at point" },
   { command: "majj.visit", description: "visit thing at point" },
   { command: "majj.absorb", description: "absorb change at point" },
+  { command: "majj.bookmark", description: "set bookmark on change at point" },
   { command: "majj.commit", description: "commit working copy" },
   { command: "majj.describe", description: "describe change at point" },
   { command: "majj.edit", description: "edit change at point" },

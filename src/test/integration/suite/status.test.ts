@@ -689,6 +689,42 @@ test("rebasing a change in status.majj prompts for destination and runs jj rebas
   }
 });
 
+test("setting a bookmark on a change in status.majj prompts for its name and runs jj bookmark set", async () => {
+  await setConfig("autoRefresh.mode", "off");
+  const api = vscode.extensions.getExtension<MajjApi>("jdsha.majj")!.exports;
+  const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
+  try {
+    await vscode.commands.executeCommand("majj.status");
+    await waitFor("Sibling change in graph", () => statusText().includes("Sibling change"));
+
+    const siblingId = jj(
+      "log",
+      "--no-graph",
+      "-r",
+      'description(substring:"Sibling change")',
+      "-T",
+      "change_id",
+    ).trim();
+    const editor = vscode.window.activeTextEditor!;
+    const lines = editor.document.getText().split("\n");
+    const siblingLine = lines.findIndex((l, i) => i > lines.indexOf("Changes:") && l.includes("Sibling change"));
+    editor.selection = new vscode.Selection(siblingLine, 0, siblingLine, 0);
+
+    // feature is on First change, so this moves it sideways, which jj only
+    // does with --allow-backwards.
+    const bookmarking = vscode.commands.executeCommand("majj.bookmark");
+    await waitFor("bookmark prompt", () => api.confirmPrompt() !== undefined);
+    assert.equal(api.confirmPrompt(), `Set bookmark on ${siblingId}`);
+    api.answerConfirmation("feature");
+    await bookmarking;
+
+    assert.equal(jj("log", "--no-graph", "-r", "feature", "-T", "change_id").trim(), siblingId);
+  } finally {
+    jj("op", "restore", savedOp);
+    await vscode.commands.executeCommand("majj.refresh");
+  }
+});
+
 test("restoring selected working copy changes or a change at point with X runs jj restore", async () => {
   await setConfig("autoRefresh.mode", "off");
   const savedOp = jj("op", "log", "--no-graph", "-n", "1", "-T", "id").trim();
@@ -1022,6 +1058,7 @@ test("help command opens help.majj with the essential commands", async () => {
       "  SPC      toggle selection at point",
       "  RET      visit thing at point",
       "  a        absorb change at point",
+      "  b        set bookmark on change at point",
       "  c        commit working copy",
       "  d        describe change at point",
       "  e        edit change at point",
